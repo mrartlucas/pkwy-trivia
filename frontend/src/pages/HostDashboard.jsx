@@ -400,6 +400,11 @@ const HostDashboard = () => {
               }}
             />
           </TabsContent>
+
+          {/* Media Library Tab */}
+          <TabsContent value="media" className="space-y-6">
+            <MediaLibrary />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
