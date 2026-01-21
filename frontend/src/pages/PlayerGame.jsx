@@ -3,29 +3,38 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
-import { Trophy, Zap, Clock, Users } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { Trophy, Zap, Clock, Users, X } from 'lucide-react';
 import { mockQuestions } from '../mockData';
+import { getBranding, formatThemes } from '../config/branding';
 import { toast } from '../hooks/use-toast';
 
 const PlayerGame = () => {
   const { gameCode } = useParams();
   const navigate = useNavigate();
   const playerName = localStorage.getItem('playerName') || 'Player';
+  const branding = getBranding();
   
-  const [gameState, setGameState] = useState('waiting'); // waiting, playing, answered, results
+  const [gameState, setGameState] = useState('waiting');
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [buzzerPressed, setBuzzerPressed] = useState(false);
-  const [playerCount, setPlayerCount] = useState(8);
+  const [buzzerAnswer, setBuzzerAnswer] = useState('');
+  const [playerCount, setPlayerCount] = useState(4);
 
   const question = mockQuestions[currentQuestion];
+  const format = question?.format || 'jeopardy';
+  const theme = formatThemes[format];
 
   useEffect(() => {
     // Simulate game starting after 3 seconds
     const timer = setTimeout(() => {
-      setGameState('playing');
+      if (question) {
+        setGameState('playing');
+        setTimeLeft(question.timeLimit || 30);
+      }
     }, 3000);
     return () => clearTimeout(timer);
   }, []);
@@ -42,7 +51,7 @@ const PlayerGame = () => {
   }, [gameState, timeLeft]);
 
   const handleTimeUp = () => {
-    if (selectedAnswer === null) {
+    if (selectedAnswer === null && !buzzerPressed) {
       toast({
         title: 'Time\'s Up!',
         description: 'You didn\'t answer in time.',
@@ -62,7 +71,7 @@ const PlayerGame = () => {
     const isCorrect = index === question.correctAnswer;
     
     if (isCorrect) {
-      const earnedPoints = question.points;
+      const earnedPoints = question.pointValue || question.points || 100;
       setScore(prev => prev + earnedPoints);
       toast({
         title: '✓ Correct!',
@@ -83,7 +92,7 @@ const PlayerGame = () => {
   };
 
   const handleBuzzerPress = () => {
-    if (question.type !== 'fastest_finger' || buzzerPressed) return;
+    if (buzzerPressed) return;
     
     setBuzzerPressed(true);
     toast({
@@ -92,26 +101,63 @@ const PlayerGame = () => {
     });
   };
 
+  const handleBuzzerSubmit = () => {
+    if (!buzzerAnswer.trim()) return;
+    
+    // In real implementation, this would check against the correct answer
+    const earnedPoints = question.pointValue || 200;
+    setScore(prev => prev + earnedPoints);
+    toast({
+      title: '✓ Accepted!',
+      description: `+${earnedPoints} points`,
+    });
+    
+    setGameState('answered');
+    setTimeout(() => {
+      moveToNextQuestion();
+    }, 2500);
+  };
+
   const moveToNextQuestion = () => {
     if (currentQuestion < mockQuestions.length - 1) {
       setCurrentQuestion(prev => prev + 1);
       setSelectedAnswer(null);
       setBuzzerPressed(false);
-      setTimeLeft(mockQuestions[currentQuestion + 1].timeLimit);
+      setBuzzerAnswer('');
+      setTimeLeft(mockQuestions[currentQuestion + 1].timeLimit || 30);
       setGameState('playing');
     } else {
       setGameState('results');
     }
   };
 
+  if (!question) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md text-center">
+          <CardContent className="pt-12 pb-12">
+            <p className="text-xl">Loading game...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (gameState === 'waiting') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex items-center justify-center p-4">
+      <div 
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{ 
+          background: `linear-gradient(135deg, ${branding.colors.primary} 0%, ${branding.colors.secondary} 100%)`
+        }}
+      >
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-12 pb-12 space-y-6">
-            <div className="animate-pulse">
-              <Users className="w-20 h-20 mx-auto text-indigo-600" />
-            </div>
+            <img 
+              src={branding.venue.logo} 
+              alt={branding.venue.name}
+              className="h-24 w-auto mx-auto object-contain"
+            />
             <h2 className="text-2xl font-bold">Welcome, {playerName}!</h2>
             <p className="text-muted-foreground">Game Code: <span className="font-mono font-bold">{gameCode}</span></p>
             <div className="flex items-center justify-center gap-2 text-sm">
@@ -120,9 +166,9 @@ const PlayerGame = () => {
             </div>
             <p className="text-lg">Waiting for host to start the game...</p>
             <div className="flex justify-center gap-2">
-              <div className="w-3 h-3 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-3 h-3 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-3 h-3 bg-pink-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              <div className="w-3 h-3 rounded-full animate-bounce" style={{ backgroundColor: branding.colors.primary, animationDelay: '0ms' }}></div>
+              <div className="w-3 h-3 rounded-full animate-bounce" style={{ backgroundColor: branding.colors.primary, animationDelay: '150ms' }}></div>
+              <div className="w-3 h-3 rounded-full animate-bounce" style={{ backgroundColor: branding.colors.primary, animationDelay: '300ms' }}></div>
             </div>
           </CardContent>
         </Card>
@@ -132,19 +178,25 @@ const PlayerGame = () => {
 
   if (gameState === 'results') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-500 via-emerald-600 to-teal-600 flex items-center justify-center p-4">
+      <div 
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{ 
+          background: `linear-gradient(135deg, ${branding.colors.primary} 0%, ${branding.colors.secondary} 100%)`
+        }}
+      >
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-12 pb-12 space-y-6">
             <Trophy className="w-24 h-24 mx-auto text-yellow-500" />
             <h2 className="text-3xl font-bold">Game Over!</h2>
             <div className="bg-muted rounded-lg p-6 space-y-2">
               <p className="text-sm text-muted-foreground">Your Final Score</p>
-              <p className="text-5xl font-bold text-indigo-600">{score}</p>
+              <p className="text-5xl font-bold" style={{ color: branding.colors.primary }}>{score}</p>
               <p className="text-sm text-muted-foreground">Check the TV for final standings!</p>
             </div>
             <Button
               onClick={() => navigate('/')}
               className="w-full"
+              style={{ backgroundColor: branding.colors.primary }}
             >
               Play Again
             </Button>
@@ -154,10 +206,10 @@ const PlayerGame = () => {
     );
   }
 
-  const progressPercentage = (timeLeft / question.timeLimit) * 100;
+  const progressPercentage = (timeLeft / (question.timeLimit || 30)) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4">
+    <div className={`min-h-screen bg-gradient-to-br ${theme.bgColor} p-4`}>
       {/* Header */}
       <div className="max-w-2xl mx-auto mb-4">
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 flex items-center justify-between">
@@ -187,10 +239,16 @@ const PlayerGame = () => {
               />
             </div>
 
-            {/* Question Type Badge */}
+            {/* Format Badge */}
             <div className="flex justify-center">
-              <span className="px-4 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium capitalize">
-                {question.type.replace('_', ' ')}
+              <span 
+                className="px-4 py-1 rounded-full text-sm font-medium capitalize"
+                style={{ 
+                  backgroundColor: branding.colors.primary,
+                  color: branding.colors.accent
+                }}
+              >
+                {theme.name}
               </span>
             </div>
 
@@ -199,8 +257,8 @@ const PlayerGame = () => {
               {question.question}
             </h2>
 
-            {/* Answer Options */}
-            {question.type === 'multiple_choice' && (
+            {/* Jeopardy or Millionaire Style - Multiple Choice */}
+            {(format === 'jeopardy' || format === 'millionaire') && question.options && (
               <div className="grid grid-cols-1 gap-3">
                 {question.options.map((option, index) => {
                   const isSelected = selectedAnswer === index;
@@ -234,7 +292,31 @@ const PlayerGame = () => {
               </div>
             )}
 
-            {question.type === 'true_false' && (
+            {/* Family Feud - Survey Style */}
+            {format === 'family_feud' && question.answers && (
+              <div className="space-y-3">
+                <p className="text-center text-muted-foreground text-sm">Select the most popular answer</p>
+                {question.answers.map((answer, index) => (
+                  <Button
+                    key={index}
+                    onClick={() => handleAnswerSelect(index)}
+                    disabled={gameState === 'answered' || answer.revealed}
+                    className="w-full h-14 text-lg font-medium justify-between transition-all duration-300 transform hover:scale-105"
+                    variant="outline"
+                  >
+                    <span>{answer.revealed || gameState === 'answered' ? answer.text : '???'}</span>
+                    {gameState === 'answered' && (
+                      <span className="font-bold" style={{ color: branding.colors.primary }}>
+                        {answer.points} pts
+                      </span>
+                    )}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            {/* Last Man Standing - True/False */}
+            {format === 'last_man_standing' && (
               <div className="grid grid-cols-2 gap-4">
                 <Button
                   onClick={() => handleAnswerSelect(1)}
@@ -267,48 +349,18 @@ const PlayerGame = () => {
               </div>
             )}
 
-            {question.type === 'fastest_finger' && (
-              <div className="text-center space-y-4">
-                <Button
-                  onClick={handleBuzzerPress}
-                  disabled={buzzerPressed}
-                  className="w-full h-32 text-2xl font-bold bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 transform hover:scale-105 transition-all duration-300"
-                >
-                  {buzzerPressed ? (
-                    <div className="flex items-center gap-3">
-                      <Zap className="w-8 h-8" />
-                      BUZZED!
-                    </div>
-                  ) : (
-                    'BUZZ IN!'
-                  )}
-                </Button>
-                {buzzerPressed && (
-                  <Input
-                    type="text"
-                    placeholder="Type your answer"
-                    className="h-14 text-center text-lg"
-                    autoFocus
-                  />
-                )}
-              </div>
-            )}
-
-            {question.type === 'survey' && (
-              <div className="space-y-3">
-                <p className="text-center text-muted-foreground text-sm">Select the most popular answer</p>
-                {question.answers.map((answer, index) => (
+            {/* Majority Rules - Voting */}
+            {format === 'majority_rules' && question.options && (
+              <div className="grid grid-cols-2 gap-3">
+                {question.options.map((option, index) => (
                   <Button
                     key={index}
                     onClick={() => handleAnswerSelect(index)}
                     disabled={gameState === 'answered'}
-                    className="w-full h-14 text-lg font-medium justify-between transition-all duration-300 transform hover:scale-105"
-                    variant="outline"
+                    className="h-16 text-lg font-medium transition-all duration-300 transform hover:scale-105"
+                    variant={selectedAnswer === index ? 'default' : 'outline'}
                   >
-                    <span>{answer.text}</span>
-                    {gameState === 'answered' && (
-                      <span className="text-indigo-600 font-bold">{answer.points} pts</span>
-                    )}
+                    {option}
                   </Button>
                 ))}
               </div>
