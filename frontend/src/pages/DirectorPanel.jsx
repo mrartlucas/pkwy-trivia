@@ -684,6 +684,87 @@ const DirectorPanel = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Player Join Info */}
+            <Card className="border-2 border-indigo-200 bg-indigo-50">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-indigo-900">
+                  <Smartphone className="w-5 h-5" />
+                  Player Join
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-center">
+                  <p className="text-sm text-indigo-700 mb-1">Game Code</p>
+                  <p className="text-4xl font-black font-mono text-indigo-900">{gameCode}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-indigo-600 mb-2">
+                    Players visit: <span className="font-mono">{window.location.origin}</span>
+                  </p>
+                  <Button 
+                    onClick={copyJoinLink} 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full"
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Join Link
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Demo Mode Controls */}
+            <Card className="border-2 border-orange-200 bg-orange-50">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-orange-900">
+                  <Bot className="w-5 h-5" />
+                  Demo Mode
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    onClick={() => addDemoBots(5)} 
+                    variant="outline" 
+                    size="sm"
+                    disabled={addingBots}
+                    className="text-xs"
+                  >
+                    +5 Bots
+                  </Button>
+                  <Button 
+                    onClick={() => addDemoBots(10)} 
+                    variant="outline" 
+                    size="sm"
+                    disabled={addingBots}
+                    className="text-xs"
+                  >
+                    +10 Bots
+                  </Button>
+                </div>
+                <Button 
+                  onClick={simulateBotAnswers} 
+                  variant="outline" 
+                  size="sm"
+                  className="w-full text-xs"
+                  disabled={game?.status !== 'active'}
+                >
+                  <Play className="w-3 h-3 mr-1" />
+                  Simulate Bot Answers
+                </Button>
+                <Button 
+                  onClick={removeDemoBots} 
+                  variant="outline" 
+                  size="sm"
+                  className="w-full text-xs text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Remove All Bots
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* Connected Players */}
             <Card>
               <CardHeader>
