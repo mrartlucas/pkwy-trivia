@@ -99,10 +99,10 @@ COMPLETION: ~40%
 TIME TO FINISH: 4-6 weeks (Phase C)
 
 LIVE URLS:
-- Player Join: https://brainbrawl-game.preview.emergentagent.com
-- TV Display: https://brainbrawl-game.preview.emergentagent.com/tv/TRIVIA
-- Director: https://brainbrawl-game.preview.emergentagent.com/director/TRIVIA
-- Host: https://brainbrawl-game.preview.emergentagent.com/host
+- Player Join: https://pubgame-1.preview.emergentagent.com
+- TV Display: https://pubgame-1.preview.emergentagent.com/tv/TRIVIA
+- Director: https://pubgame-1.preview.emergentagent.com/director/TRIVIA
+- Host: https://pubgame-1.preview.emergentagent.com/host
 
 DOCUMENTATION STATS:
 - Total files: 7

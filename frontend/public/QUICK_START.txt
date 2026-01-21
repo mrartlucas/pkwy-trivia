@@ -111,7 +111,7 @@ RULES:
 └─────────────────────────────────────────────────────────────────────────┘
 
 LIVE SYSTEM:
-  • Player Join: https://brainbrawl-game.preview.emergentagent.com
+  • Player Join: https://pubgame-1.preview.emergentagent.com
   • TV Display: .../tv/TRIVIA
   • Director: .../director/TRIVIA
   • Host Dashboard: .../host
