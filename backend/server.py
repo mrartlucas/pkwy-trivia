@@ -31,7 +31,7 @@ app = FastAPI(
 api_router = APIRouter(prefix="/api")
 
 # Import routes
-from routes import games, game_packs, answers
+from routes import games, game_packs, answers, demo
 from services.websocket_manager import (
     manager, 
     handle_director_message, 
@@ -42,11 +42,13 @@ from services.websocket_manager import (
 games.set_db(db)
 game_packs.set_db(db)
 answers.set_db(db)
+demo.set_db(db)
 
 # Include route modules
 api_router.include_router(games.router)
 api_router.include_router(game_packs.router)
 api_router.include_router(answers.router)
+api_router.include_router(demo.router)
 
 
 # Health check endpoint
