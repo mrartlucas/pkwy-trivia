@@ -222,23 +222,31 @@ const TVDisplay = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto">
-        <Card className="bg-white border-0 shadow-2xl">
+        <Card className="bg-blue-900 border-8 border-yellow-400 shadow-2xl">
           <CardContent className="p-12 space-y-8">
             {/* Progress Bar */}
-            <Progress 
-              value={progressPercentage} 
-              className="h-4"
-            />
+            <div className="space-y-2">
+              <Progress 
+                value={progressPercentage} 
+                className="h-4"
+              />
+            </div>
 
-            {/* Question Type */}
+            {/* Question Type Badge */}
             <div className="flex justify-center">
-              <span className="px-6 py-2 bg-indigo-100 text-indigo-700 rounded-full text-2xl font-bold capitalize">
+              <span 
+                className="px-6 py-2 rounded-full text-2xl font-bold capitalize"
+                style={{
+                  backgroundColor: branding.colors.primary,
+                  color: branding.colors.accent
+                }}
+              >
                 {question.format ? question.format.replace('_', ' ') : 'Question'}
               </span>
             </div>
 
             {/* Question */}
-            <h1 className="text-6xl font-black text-center text-gray-900 min-h-[200px] flex items-center justify-center">
+            <h1 className="text-6xl font-bold text-center text-yellow-400 min-h-[200px] flex items-center justify-center">
               {question.question}
             </h1>
 
