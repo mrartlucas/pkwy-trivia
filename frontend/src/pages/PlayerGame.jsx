@@ -1,149 +1,331 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * Player Game Page - Real-time game interface for players
+ * Connected to backend API and WebSocket
+ */
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
 import { Input } from '../components/ui/input';
-import { Trophy, Zap, Clock, Users, X } from 'lucide-react';
-import { mockQuestions } from '../mockData';
-import { getBranding, formatThemes } from '../config/branding';
+import { Trophy, Clock, Users, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { getBranding } from '../config/branding';
 import { toast } from '../hooks/use-toast';
+import { gamesApi, answersApi, createWebSocket } from '../services/api';
 
 const PlayerGame = () => {
   const { gameCode } = useParams();
   const navigate = useNavigate();
   const playerName = localStorage.getItem('playerName') || 'Player';
+  const playerId = localStorage.getItem('playerId');
   const branding = getBranding();
   
-  const [gameState, setGameState] = useState('waiting');
-  const [currentQuestion, setCurrentQuestion] = useState(0);
+  // State
+  const [game, setGame] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [ws, setWs] = useState(null);
+  const [gameState, setGameState] = useState('waiting'); // waiting, playing, answered, results
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
-  const [buzzerPressed, setBuzzerPressed] = useState(false);
-  const [buzzerAnswer, setBuzzerAnswer] = useState('');
-  const [playerCount, setPlayerCount] = useState(4);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [textAnswer, setTextAnswer] = useState('');
+  const [answerStartTime, setAnswerStartTime] = useState(null);
 
-  const question = mockQuestions[currentQuestion];
-  const format = question?.format || 'jeopardy';
-  const theme = formatThemes[format];
-
-  useEffect(() => {
-    // Simulate game starting after 3 seconds
-    const timer = setTimeout(() => {
-      if (question) {
-        setGameState('playing');
-        setTimeLeft(question.timeLimit || 30);
+  // Fetch game data
+  const fetchGame = useCallback(async () => {
+    try {
+      const gameData = await gamesApi.getByCode(gameCode);
+      setGame(gameData);
+      setCurrentIndex(gameData.current_question_index || 0);
+      
+      // Find player score
+      const player = gameData.players?.find(p => p.id === playerId);
+      if (player) {
+        setScore(player.score || 0);
       }
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
+      
+      // Set game state based on status
+      if (gameData.status === 'active') {
+        setGameState('playing');
+        extractCurrentQuestion(gameData);
+      } else if (gameData.status === 'finished') {
+        setGameState('results');
+      }
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [gameCode, playerId]);
 
+  // Extract current question based on game format
+  const extractCurrentQuestion = (gameData) => {
+    const content = gameData?.content;
+    const index = gameData?.current_question_index || 0;
+    const format = gameData?.game_format;
+    
+    if (!content) return;
+
+    let question = null;
+
+    if (format === 'GAME NIGHT MIX') {
+      // Flatten all questions from rounds
+      const allQuestions = [];
+      for (const round of (content.rounds || [])) {
+        const roundFormat = round.format;
+        if (roundFormat === 'PERIL!') {
+          for (const cat of (round.categories || [])) {
+            for (const clue of (cat.clues || [])) {
+              allQuestions.push({ ...clue, format: roundFormat, type: 'multiple_choice' });
+            }
+          }
+        } else if (roundFormat === 'SURVEY SAYS!') {
+          for (const q of (round.survey_questions || [])) {
+            allQuestions.push({ 
+              question_text: q.question, 
+              answers: q.answers, 
+              format: roundFormat, 
+              type: 'survey' 
+            });
+          }
+        } else if (roundFormat === 'SPIN TO WIN!') {
+          for (const p of (round.puzzles || [])) {
+            allQuestions.push({ 
+              question_text: p.category + ': Solve the puzzle', 
+              puzzle: p.puzzle_with_blanks,
+              answer: p.full_answer,
+              format: roundFormat, 
+              type: 'text_input' 
+            });
+          }
+        } else if (roundFormat === 'CLOSEST WINS!') {
+          for (const n of (round.numbers || [])) {
+            allQuestions.push({ ...n, format: roundFormat, type: 'number_input' });
+          }
+        } else {
+          for (const q of (round.questions || [])) {
+            allQuestions.push({ ...q, format: roundFormat, type: 'multiple_choice' });
+          }
+        }
+      }
+      question = allQuestions[index];
+    } else {
+      // Single format games
+      switch (format) {
+        case 'PERIL!':
+          const allClues = (content.categories || []).flatMap(c => c.clues || []);
+          question = allClues[index];
+          if (question) question.type = 'multiple_choice';
+          break;
+        case 'SURVEY SAYS!':
+          const surveyQ = content.survey_questions?.[index];
+          if (surveyQ) {
+            question = { question_text: surveyQ.question, answers: surveyQ.answers, type: 'survey' };
+          }
+          break;
+        case 'SPIN TO WIN!':
+          const puzzle = content.puzzles?.[index];
+          if (puzzle) {
+            question = { question_text: puzzle.category, puzzle: puzzle.puzzle_with_blanks, type: 'text_input' };
+          }
+          break;
+        case 'CLOSEST WINS!':
+          question = content.numbers?.[index];
+          if (question) question.type = 'number_input';
+          break;
+        default:
+          question = content.questions?.[index];
+          if (question) question.type = 'multiple_choice';
+      }
+    }
+
+    setCurrentQuestion(question);
+    setAnswerStartTime(Date.now());
+  };
+
+  // WebSocket connection
+  useEffect(() => {
+    if (!gameCode || !playerId) return;
+
+    const socket = createWebSocket.player(gameCode, playerId);
+    
+    socket.onopen = () => {
+      setConnected(true);
+      console.log('Player WebSocket connected');
+    };
+
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      handleWebSocketMessage(message);
+    };
+
+    socket.onerror = () => {
+      setConnected(false);
+    };
+
+    socket.onclose = () => {
+      setConnected(false);
+    };
+
+    setWs(socket);
+
+    return () => {
+      socket.close();
+    };
+  }, [gameCode, playerId]);
+
+  // Handle WebSocket messages
+  const handleWebSocketMessage = (message) => {
+    const { event, data } = message;
+
+    switch (event) {
+      case 'game:started':
+        setGameState('playing');
+        fetchGame();
+        toast({ title: 'Game Started!', description: 'Get ready to play!' });
+        break;
+        
+      case 'game:paused':
+        toast({ title: 'Game Paused', description: 'Waiting for host...' });
+        break;
+        
+      case 'game:resumed':
+        setGameState('playing');
+        break;
+        
+      case 'game:finished':
+        setGameState('results');
+        toast({ title: 'Game Over!', description: 'Check the TV for final standings!' });
+        break;
+        
+      case 'question:changed':
+        setCurrentIndex(data.question_index);
+        setSelectedAnswer(null);
+        setShowAnswer(false);
+        setTextAnswer('');
+        setGameState('playing');
+        fetchGame();
+        break;
+        
+      case 'answer:revealed':
+        setShowAnswer(true);
+        break;
+        
+      case 'timer:started':
+        setTimeLeft(data.duration || 30);
+        break;
+        
+      default:
+        console.log('Player received:', event);
+    }
+  };
+
+  // Initial fetch
+  useEffect(() => {
+    fetchGame();
+  }, [fetchGame]);
+
+  // Timer countdown
   useEffect(() => {
     if (gameState === 'playing' && timeLeft > 0) {
       const timer = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
+        setTimeLeft(prev => Math.max(0, prev - 1));
       }, 1000);
       return () => clearInterval(timer);
-    } else if (timeLeft === 0 && gameState === 'playing') {
-      handleTimeUp();
     }
   }, [gameState, timeLeft]);
 
-  const handleTimeUp = () => {
-    if (selectedAnswer === null && !buzzerPressed) {
-      toast({
-        title: 'Time\'s Up!',
-        description: 'You didn\'t answer in time.',
-        variant: 'destructive',
-      });
-    }
-    setGameState('answered');
-    setTimeout(() => {
-      moveToNextQuestion();
-    }, 3000);
-  };
-
-  const handleAnswerSelect = (index) => {
+  // Submit answer
+  const handleAnswerSelect = async (answer) => {
     if (gameState !== 'playing' || selectedAnswer !== null) return;
     
-    setSelectedAnswer(index);
-    const isCorrect = index === question.correctAnswer;
-    
-    if (isCorrect) {
-      const earnedPoints = question.pointValue || question.points || 100;
-      setScore(prev => prev + earnedPoints);
-      toast({
-        title: '✓ Correct!',
-        description: `+${earnedPoints} points`,
-      });
-    } else {
-      toast({
-        title: '✗ Wrong Answer',
-        description: 'Better luck next time!',
-        variant: 'destructive',
-      });
+    setSelectedAnswer(answer);
+    const timeTaken = (Date.now() - answerStartTime) / 1000;
+
+    // Send answer via WebSocket
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        event: 'answer:submit',
+        data: {
+          answer,
+          time_taken: timeTaken,
+          question_index: currentIndex,
+        }
+      }));
     }
-    
-    setGameState('answered');
-    setTimeout(() => {
-      moveToNextQuestion();
-    }, 2500);
-  };
 
-  const handleBuzzerPress = () => {
-    if (buzzerPressed) return;
-    
-    setBuzzerPressed(true);
-    toast({
-      title: 'Buzzer Activated!',
-      description: 'You were first! Answer now.',
-    });
-  };
+    // Also submit via API for scoring
+    try {
+      const result = await answersApi.submit({
+        player_id: playerId,
+        game_id: game.id,
+        question_index: currentIndex,
+        answer,
+        time_taken: timeTaken,
+      });
 
-  const handleBuzzerSubmit = () => {
-    if (!buzzerAnswer.trim()) return;
-    
-    // In real implementation, this would check against the correct answer
-    const earnedPoints = question.pointValue || 200;
-    setScore(prev => prev + earnedPoints);
-    toast({
-      title: '✓ Accepted!',
-      description: `+${earnedPoints} points`,
-    });
-    
-    setGameState('answered');
-    setTimeout(() => {
-      moveToNextQuestion();
-    }, 2500);
-  };
-
-  const moveToNextQuestion = () => {
-    if (currentQuestion < mockQuestions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
-      setSelectedAnswer(null);
-      setBuzzerPressed(false);
-      setBuzzerAnswer('');
-      setTimeLeft(mockQuestions[currentQuestion + 1].timeLimit || 30);
-      setGameState('playing');
-    } else {
-      setGameState('results');
+      if (result.correct) {
+        setScore(result.new_score);
+        toast({
+          title: '✓ Correct!',
+          description: `+${result.points_earned} points`,
+        });
+      } else {
+        toast({
+          title: '✗ Wrong',
+          description: 'Better luck next time!',
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('Error submitting answer:', err);
     }
+
+    setGameState('answered');
   };
 
-  if (!question) {
+  // Submit text/number answer
+  const handleTextSubmit = () => {
+    if (!textAnswer.trim()) return;
+    handleAnswerSelect(textAnswer);
+  };
+
+  // Loading state
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="pt-12 pb-12">
-            <p className="text-xl">Loading game...</p>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-white animate-spin" />
+      </div>
+    );
+  }
+
+  // No player ID - redirect to join
+  if (!playerId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <h2 className="text-2xl font-bold mb-4">Session Expired</h2>
+            <p className="text-muted-foreground mb-4">Please rejoin the game</p>
+            <Button onClick={() => navigate(`/?code=${gameCode}`)} className="w-full">
+              Rejoin Game
+            </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (gameState === 'waiting') {
+  // Waiting for game to start
+  if (gameState === 'waiting' || game?.status === 'waiting') {
     return (
       <div 
         className="min-h-screen flex items-center justify-center p-4"
@@ -159,12 +341,24 @@ const PlayerGame = () => {
               className="h-24 w-auto mx-auto object-contain"
             />
             <h2 className="text-2xl font-bold">Welcome, {playerName}!</h2>
-            <p className="text-muted-foreground">Game Code: <span className="font-mono font-bold">{gameCode}</span></p>
+            <p className="text-muted-foreground">
+              Game: <span className="font-mono font-bold">{gameCode}</span>
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              {connected ? (
+                <Wifi className="w-5 h-5 text-green-500" />
+              ) : (
+                <WifiOff className="w-5 h-5 text-red-500" />
+              )}
+              <span className={connected ? 'text-green-600' : 'text-red-600'}>
+                {connected ? 'Connected' : 'Connecting...'}
+              </span>
+            </div>
             <div className="flex items-center justify-center gap-2 text-sm">
               <Users className="w-4 h-4" />
-              <span>{playerCount} players connected</span>
+              <span>{game?.players?.length || 0} players connected</span>
             </div>
-            <p className="text-lg">Waiting for host to start the game...</p>
+            <p className="text-lg">Waiting for host to start...</p>
             <div className="flex justify-center gap-2">
               <div className="w-3 h-3 rounded-full animate-bounce" style={{ backgroundColor: branding.colors.primary, animationDelay: '0ms' }}></div>
               <div className="w-3 h-3 rounded-full animate-bounce" style={{ backgroundColor: branding.colors.primary, animationDelay: '150ms' }}></div>
@@ -176,7 +370,8 @@ const PlayerGame = () => {
     );
   }
 
-  if (gameState === 'results') {
+  // Results screen
+  if (gameState === 'results' || game?.status === 'finished') {
     return (
       <div 
         className="min-h-screen flex items-center justify-center p-4"
@@ -206,10 +401,27 @@ const PlayerGame = () => {
     );
   }
 
-  const progressPercentage = (timeLeft / (question.timeLimit || 30)) * 100;
+  // No question yet
+  if (!currentQuestion) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-indigo-500" />
+            <h2 className="text-xl font-bold mb-2">Getting Ready...</h2>
+            <p className="text-muted-foreground">Waiting for the next question</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Playing state - show question
+  const progressPercentage = (timeLeft / 30) * 100;
+  const questionType = currentQuestion.type || 'multiple_choice';
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${theme.bgColor} p-4`}>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-950 p-4">
       {/* Header */}
       <div className="max-w-2xl mx-auto mb-4">
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 flex items-center justify-between">
@@ -218,7 +430,7 @@ const PlayerGame = () => {
             <span className="text-white font-bold text-xl">{score}</span>
           </div>
           <div className="text-white font-mono">
-            Q {currentQuestion + 1}/{mockQuestions.length}
+            Q {currentIndex + 1}
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-white" />
@@ -232,178 +444,172 @@ const PlayerGame = () => {
         <Card className="border-0 shadow-2xl">
           <CardContent className="p-6 space-y-6">
             {/* Progress Bar */}
-            <div className="space-y-2">
-              <Progress 
-                value={progressPercentage} 
-                className="h-2"
-              />
-            </div>
+            <Progress value={progressPercentage} className="h-2" />
 
             {/* Format Badge */}
-            <div className="flex justify-center">
-              <span 
-                className="px-4 py-1 rounded-full text-sm font-medium capitalize"
-                style={{ 
-                  backgroundColor: branding.colors.primary,
-                  color: branding.colors.accent
-                }}
-              >
-                {theme.name}
-              </span>
-            </div>
+            {currentQuestion.format && (
+              <div className="flex justify-center">
+                <span className="px-4 py-1 rounded-full text-sm font-medium bg-indigo-600 text-white">
+                  {currentQuestion.format}
+                </span>
+              </div>
+            )}
 
-            {/* Question */}
-            <h2 className="text-2xl font-bold text-center min-h-[80px] flex items-center justify-center">
-              {question.question}
+            {/* Question Text */}
+            <h2 className="text-2xl font-bold text-center">
+              {currentQuestion.question_text || currentQuestion.clue_text || currentQuestion.question}
             </h2>
 
-            {/* Jeopardy or Millionaire Style - Multiple Choice */}
-            {(format === 'jeopardy' || format === 'millionaire') && question.options && (
+            {/* Multiple Choice */}
+            {questionType === 'multiple_choice' && currentQuestion.choices && (
               <div className="grid grid-cols-1 gap-3">
-                {question.options.map((option, index) => {
-                  const isSelected = selectedAnswer === index;
-                  const isCorrect = index === question.correctAnswer;
-                  const showResult = gameState === 'answered';
+                {Object.entries(currentQuestion.choices).map(([letter, text]) => {
+                  const isSelected = selectedAnswer === letter;
+                  const isCorrect = letter === currentQuestion.correct_answer;
+                  const showResult = showAnswer || gameState === 'answered';
                   
-                  let buttonClass = 'h-16 text-lg font-medium transition-all duration-300 transform hover:scale-105';
+                  let buttonClass = 'h-16 text-lg font-medium transition-all duration-300';
                   
                   if (showResult) {
-                    if (isSelected && isCorrect) {
+                    if (isCorrect) {
                       buttonClass += ' bg-green-500 hover:bg-green-500 text-white';
                     } else if (isSelected && !isCorrect) {
                       buttonClass += ' bg-red-500 hover:bg-red-500 text-white';
-                    } else if (isCorrect) {
-                      buttonClass += ' bg-green-500 hover:bg-green-500 text-white';
                     }
+                  } else if (isSelected) {
+                    buttonClass += ' bg-indigo-600 text-white';
                   }
                   
                   return (
                     <Button
-                      key={index}
-                      onClick={() => handleAnswerSelect(index)}
-                      disabled={gameState === 'answered'}
+                      key={letter}
+                      onClick={() => handleAnswerSelect(letter)}
+                      disabled={gameState === 'answered' || selectedAnswer !== null}
                       className={buttonClass}
-                      variant={showResult ? 'default' : 'outline'}
+                      variant={isSelected ? 'default' : 'outline'}
                     >
-                      {option}
+                      <span className="font-bold mr-3">{letter}.</span> {text}
                     </Button>
                   );
                 })}
               </div>
             )}
 
-            {/* Family Feud - Survey Style */}
-            {format === 'family_feud' && question.answers && (
-              <div className="space-y-4">
-                <p className="text-center text-muted-foreground text-sm font-medium">
-                  Type your answer or select from the board
-                </p>
-                
-                {/* Text Input for Custom Answer */}
-                <div className="relative">
-                  <Input
-                    type="text"
-                    placeholder="Type your answer..."
-                    className="h-16 text-lg text-center font-bold uppercase"
-                    disabled={gameState === 'answered'}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && e.target.value) {
-                        // In real implementation, check against all answers
-                        const matchIndex = question.answers.findIndex(
-                          a => a.text.toLowerCase() === e.target.value.toLowerCase()
-                        );
-                        if (matchIndex >= 0) {
-                          handleAnswerSelect(matchIndex);
-                        } else {
-                          toast({
-                            title: 'Not on the board!',
-                            description: 'Try another answer',
-                            variant: 'destructive',
-                          });
-                        }
+            {/* Wrong answers style (for PERIL!) */}
+            {questionType === 'multiple_choice' && currentQuestion.wrong_answers && !currentQuestion.choices && (
+              <div className="grid grid-cols-1 gap-3">
+                {[currentQuestion.correct_answer, ...currentQuestion.wrong_answers]
+                  .sort(() => Math.random() - 0.5)
+                  .map((option, index) => {
+                    const letter = String.fromCharCode(65 + index);
+                    const isSelected = selectedAnswer === letter;
+                    const isCorrect = option === currentQuestion.correct_answer;
+                    const showResult = showAnswer || gameState === 'answered';
+                    
+                    let buttonClass = 'h-16 text-lg font-medium transition-all duration-300';
+                    
+                    if (showResult) {
+                      if (isCorrect) {
+                        buttonClass += ' bg-green-500 hover:bg-green-500 text-white';
+                      } else if (isSelected && !isCorrect) {
+                        buttonClass += ' bg-red-500 hover:bg-red-500 text-white';
                       }
-                    }}
-                  />
-                </div>
+                    }
+                    
+                    return (
+                      <Button
+                        key={index}
+                        onClick={() => handleAnswerSelect(letter)}
+                        disabled={gameState === 'answered' || selectedAnswer !== null}
+                        className={buttonClass}
+                        variant={isSelected ? 'default' : 'outline'}
+                      >
+                        <span className="font-bold mr-3">{letter}.</span> {option}
+                      </Button>
+                    );
+                  })}
+              </div>
+            )}
 
-                <div className="text-center text-sm text-muted-foreground">- OR -</div>
+            {/* Survey Style */}
+            {questionType === 'survey' && (
+              <div className="space-y-4">
+                <Input
+                  type="text"
+                  placeholder="Type your answer..."
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleTextSubmit()}
+                  disabled={gameState === 'answered'}
+                  className="h-14 text-lg text-center"
+                />
+                <Button 
+                  onClick={handleTextSubmit}
+                  disabled={gameState === 'answered' || !textAnswer.trim()}
+                  className="w-full h-12"
+                  style={{ backgroundColor: branding.colors.primary }}
+                >
+                  Submit Answer
+                </Button>
+              </div>
+            )}
 
-                {/* Quick Select Buttons - Show actual answers */}
-                <div className="space-y-2">
-                  {question.answers.map((answer, index) => (
-                    <Button
-                      key={index}
-                      onClick={() => handleAnswerSelect(index)}
-                      disabled={gameState === 'answered'}
-                      className="w-full h-14 text-lg font-medium justify-between transition-all duration-300 transform hover:scale-105"
-                      variant="outline"
-                    >
-                      <span>{answer.text}</span>
-                      {gameState === 'answered' && (
-                        <span className="font-bold" style={{ color: branding.colors.primary }}>
-                          {answer.points} pts
-                        </span>
-                      )}
-                    </Button>
-                  ))}
-                </div>
-                
-                {gameState === 'answered' && (
-                  <div className="text-center text-sm text-muted-foreground mt-4">
-                    Top answers revealed on TV!
+            {/* Number Input */}
+            {questionType === 'number_input' && (
+              <div className="space-y-4">
+                <Input
+                  type="number"
+                  placeholder="Enter your guess..."
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleTextSubmit()}
+                  disabled={gameState === 'answered'}
+                  className="h-14 text-2xl text-center font-bold"
+                />
+                <Button 
+                  onClick={handleTextSubmit}
+                  disabled={gameState === 'answered' || !textAnswer.trim()}
+                  className="w-full h-12"
+                  style={{ backgroundColor: branding.colors.primary }}
+                >
+                  Lock In Guess
+                </Button>
+              </div>
+            )}
+
+            {/* Text Input (Puzzles) */}
+            {questionType === 'text_input' && (
+              <div className="space-y-4">
+                {currentQuestion.puzzle && (
+                  <div className="bg-indigo-100 p-4 rounded-lg text-center">
+                    <p className="text-2xl font-mono tracking-widest">{currentQuestion.puzzle}</p>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Last Man Standing - True/False */}
-            {format === 'last_man_standing' && (
-              <div className="grid grid-cols-2 gap-4">
-                <Button
-                  onClick={() => handleAnswerSelect(1)}
+                <Input
+                  type="text"
+                  placeholder="Solve the puzzle..."
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value.toUpperCase())}
+                  onKeyPress={(e) => e.key === 'Enter' && handleTextSubmit()}
                   disabled={gameState === 'answered'}
-                  className={`h-20 text-xl font-bold transition-all duration-300 transform hover:scale-105 ${
-                    gameState === 'answered' && selectedAnswer === 1
-                      ? question.correctAnswer === true
-                        ? 'bg-green-500 hover:bg-green-500'
-                        : 'bg-red-500 hover:bg-red-500'
-                      : ''
-                  }`}
-                  variant={gameState === 'answered' ? 'default' : 'outline'}
+                  className="h-14 text-lg text-center uppercase"
+                />
+                <Button 
+                  onClick={handleTextSubmit}
+                  disabled={gameState === 'answered' || !textAnswer.trim()}
+                  className="w-full h-12"
+                  style={{ backgroundColor: branding.colors.primary }}
                 >
-                  TRUE
-                </Button>
-                <Button
-                  onClick={() => handleAnswerSelect(0)}
-                  disabled={gameState === 'answered'}
-                  className={`h-20 text-xl font-bold transition-all duration-300 transform hover:scale-105 ${
-                    gameState === 'answered' && selectedAnswer === 0
-                      ? question.correctAnswer === false
-                        ? 'bg-green-500 hover:bg-green-500'
-                        : 'bg-red-500 hover:bg-red-500'
-                      : ''
-                  }`}
-                  variant={gameState === 'answered' ? 'default' : 'outline'}
-                >
-                  FALSE
+                  Submit Solution
                 </Button>
               </div>
             )}
 
-            {/* Majority Rules - Voting */}
-            {format === 'majority_rules' && question.options && (
-              <div className="grid grid-cols-2 gap-3">
-                {question.options.map((option, index) => (
-                  <Button
-                    key={index}
-                    onClick={() => handleAnswerSelect(index)}
-                    disabled={gameState === 'answered'}
-                    className="h-16 text-lg font-medium transition-all duration-300 transform hover:scale-105"
-                    variant={selectedAnswer === index ? 'default' : 'outline'}
-                  >
-                    {option}
-                  </Button>
-                ))}
+            {/* Answered State */}
+            {gameState === 'answered' && (
+              <div className="text-center p-4 bg-muted rounded-lg">
+                <p className="text-lg font-medium">Answer submitted!</p>
+                <p className="text-sm text-muted-foreground">Waiting for next question...</p>
               </div>
             )}
           </CardContent>
