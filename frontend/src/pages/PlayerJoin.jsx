@@ -1,11 +1,16 @@
+/**
+ * Player Join Page - Enter game with code
+ * Uses real API to join games
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
-import { User, Hash } from 'lucide-react';
+import { User, Hash, Loader2 } from 'lucide-react';
 import { toast } from '../hooks/use-toast';
 import { getBranding } from '../config/branding';
+import { gamesApi } from '../services/api';
 
 const PlayerJoin = () => {
   const navigate = useNavigate();
@@ -18,7 +23,7 @@ const PlayerJoin = () => {
     setBranding(getBranding());
   }, []);
 
-  const handleJoinGame = (e) => {
+  const handleJoinGame = async (e) => {
     e.preventDefault();
     
     if (!playerName.trim()) {
@@ -41,10 +46,14 @@ const PlayerJoin = () => {
 
     setLoading(true);
     
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // Join the game via API
+      const playerData = await gamesApi.join(gameCode.toUpperCase(), playerName);
+      
+      // Store player info
       localStorage.setItem('playerName', playerName);
       localStorage.setItem('gameCode', gameCode.toUpperCase());
+      localStorage.setItem('playerId', playerData.id);
       
       toast({
         title: 'Joined Successfully!',
@@ -52,7 +61,15 @@ const PlayerJoin = () => {
       });
       
       navigate(`/player/${gameCode.toUpperCase()}`);
-    }, 1000);
+    } catch (err) {
+      toast({
+        title: 'Unable to Join',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -104,6 +121,7 @@ const PlayerJoin = () => {
                 onChange={(e) => setPlayerName(e.target.value)}
                 className="h-12 text-base"
                 maxLength={20}
+                data-testid="player-name-input"
               />
             </div>
             
@@ -119,6 +137,7 @@ const PlayerJoin = () => {
                 onChange={(e) => setGameCode(e.target.value.toUpperCase())}
                 className="h-12 text-base uppercase font-mono tracking-wider"
                 maxLength={10}
+                data-testid="game-code-input"
               />
             </div>
             
@@ -130,8 +149,16 @@ const PlayerJoin = () => {
                 backgroundColor: branding.colors.primary,
                 color: branding.colors.accent,
               }}
+              data-testid="join-game-btn"
             >
-              {loading ? 'Joining...' : 'JOIN GAME'}
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                'JOIN GAME'
+              )}
             </Button>
           </form>
           
@@ -141,6 +168,7 @@ const PlayerJoin = () => {
               variant="outline"
               onClick={() => navigate('/host')}
               className="w-full"
+              data-testid="host-dashboard-btn"
             >
               Host Dashboard
             </Button>
