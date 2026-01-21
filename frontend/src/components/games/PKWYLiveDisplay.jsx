@@ -1,21 +1,21 @@
 /**
  * PKWY LIVE! Game Display (HQ Trivia-style)
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Wifi, Users, Clock, Zap } from 'lucide-react';
 
 const PKWYLiveDisplay = ({ content, currentIndex, showAnswer, playerCount = 0, timeLeft = 10 }) => {
   const [answerCounts, setAnswerCounts] = useState({ A: 0, B: 0, C: 0, D: 0 });
 
-  if (!content?.questions) return null;
-  
-  const question = content.questions[currentIndex];
-  if (!question) return null;
+  // Get question data
+  const question = useMemo(() => {
+    return content?.questions?.[currentIndex] || null;
+  }, [content, currentIndex]);
 
   // Simulate answer distribution when answer is revealed
   useEffect(() => {
-    if (showAnswer && playerCount > 0) {
+    if (showAnswer && playerCount > 0 && question) {
       const total = playerCount;
       const correctLetter = question.correct_answer;
       const correctCount = Math.floor(total * (0.3 + Math.random() * 0.3));
@@ -39,6 +39,10 @@ const PKWYLiveDisplay = ({ content, currentIndex, showAnswer, playerCount = 0, t
       setAnswerCounts(distribution);
     }
   }, [showAnswer, playerCount, question]);
+
+  // Early returns after hooks
+  if (!content?.questions) return null;
+  if (!question) return null;
 
   const totalAnswers = Object.values(answerCounts).reduce((a, b) => a + b, 0);
 
