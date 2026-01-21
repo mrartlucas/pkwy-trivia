@@ -406,6 +406,361 @@ const HostDashboard = () => {
           <TabsContent value="media" className="space-y-6">
             <MediaLibrary />
           </TabsContent>
+
+          {/* Documentation Tab */}
+          <TabsContent value="docs" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>System Documentation</CardTitle>
+                <CardDescription>
+                  Download complete guides, specs, and technical documentation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Main Documentation */}
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-2xl">📚</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg mb-1">Complete Documentation</h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Full system guide with user guides, technical details, and setup instructions (50+ pages)
+                          </p>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              onClick={() => window.open('/COMPLETE_DOCUMENTATION.md', '_blank')}
+                            >
+                              View Online
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = '/COMPLETE_DOCUMENTATION.md';
+                                link.download = 'PKWY_Complete_Documentation.md';
+                                link.click();
+                              }}
+                            >
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Roadmap */}
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-2xl">🗺️</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg mb-1">Project Roadmap</h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            What's completed vs what's remaining, implementation plan (15+ pages)
+                          </p>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              onClick={() => window.open('/ROADMAP.md', '_blank')}
+                            >
+                              View Online
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = '/ROADMAP.md';
+                                link.download = 'PKWY_Roadmap.md';
+                                link.click();
+                              }}
+                            >
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Media Organization */}
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-2xl">🏷️</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg mb-1">Media Organization Guide</h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            How to label graphics, videos, and sounds for correct usage (25+ pages)
+                          </p>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              onClick={() => window.open('/MEDIA_ORGANIZATION_GUIDE.md', '_blank')}
+                            >
+                              View Online
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = '/MEDIA_ORGANIZATION_GUIDE.md';
+                                link.download = 'PKWY_Media_Organization.md';
+                                link.click();
+                              }}
+                            >
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Media Format Guide */}
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-2xl">🎨</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg mb-1">Media Format Guide</h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Dzine & Higgsfield AI optimization specs and requirements (30+ pages)
+                          </p>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              onClick={() => window.open('/MEDIA_FORMAT_GUIDE.md', '_blank')}
+                            >
+                              View Online
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = '/MEDIA_FORMAT_GUIDE.md';
+                                link.download = 'PKWY_Media_Formats.md';
+                                link.click();
+                              }}
+                            >
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Video Specs */}
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-2xl">🎬</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg mb-1">Video Specifications</h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Video requirements for intros, transitions, and celebrations (15+ pages)
+                          </p>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              onClick={() => window.open('/VIDEO_SPECS.md', '_blank')}
+                            >
+                              View Online
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = '/VIDEO_SPECS.md';
+                                link.download = 'PKWY_Video_Specs.md';
+                                link.click();
+                              }}
+                            >
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Backend Contracts */}
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-2xl">⚙️</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg mb-1">Backend API Contracts</h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Technical specs for backend development and WebSocket (20+ pages)
+                          </p>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              onClick={() => window.open('/contracts.md', '_blank')}
+                            >
+                              View Online
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = '/contracts.md';
+                                link.download = 'PKWY_Backend_Contracts.md';
+                                link.click();
+                              }}
+                            >
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* QuizXpress Analysis */}
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-2xl">📊</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg mb-1">QuizXpress Analysis</h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Feature comparison and analysis vs QuizXpress (25+ pages)
+                          </p>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              onClick={() => window.open('/QUIZXPRESS_ANALYSIS.md', '_blank')}
+                            >
+                              View Online
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = '/QUIZXPRESS_ANALYSIS.md';
+                                link.download = 'PKWY_QuizXpress_Analysis.md';
+                                link.click();
+                              }}
+                            >
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Quick Start */}
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-2xl">🚀</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg mb-1">Quick Start Guide</h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Visual guide with checklists and next steps
+                          </p>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              onClick={() => window.open('/QUICK_START.txt', '_blank')}
+                            >
+                              View Online
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = '/QUICK_START.txt';
+                                link.download = 'PKWY_Quick_Start.txt';
+                                link.click();
+                              }}
+                            >
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Summary Card */}
+                <Card className="mt-6 border-2 border-primary/20">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-2xl">📦</span>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg mb-2">Complete Package</h3>
+                        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Total Files:</p>
+                            <p className="font-bold">8 documents</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Total Pages:</p>
+                            <p className="font-bold">165+ pages</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Size:</p>
+                            <p className="font-bold">~450 KB</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Format:</p>
+                            <p className="font-bold">Markdown (.md)</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          All documentation files are available for download. View online in browser or download to read offline. Markdown files can be opened in any text editor or Markdown viewer.
+                        </p>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <p className="text-sm font-medium text-blue-900 mb-2">💡 Tip: Start Here</p>
+                          <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                            <li>Download "Complete Documentation" first</li>
+                            <li>Review "Project Roadmap" to see status</li>
+                            <li>Check "Media Organization Guide" for asset creation</li>
+                            <li>Share relevant docs with your team</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
