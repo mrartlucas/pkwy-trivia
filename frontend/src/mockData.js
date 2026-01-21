@@ -1,126 +1,150 @@
-// Mock data for trivia game
+// Mock data for trivia game with multiple formats
 
 export const mockGames = [
   {
     id: 'GAME001',
     code: 'TRIVIA',
-    name: 'Bar Trivia Night',
+    name: 'PKWY Trivia Night',
     host: 'DJ Mike',
-    status: 'waiting', // waiting, active, finished
+    venue: 'PKWY Tavern',
+    status: 'waiting',
     currentQuestion: 0,
-    totalQuestions: 10,
-    players: [],
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'GAME002',
-    code: 'QUIZ42',
-    name: 'Corporate Challenge',
-    host: 'Sarah Johnson',
-    status: 'active',
-    currentQuestion: 3,
     totalQuestions: 15,
     players: [],
     createdAt: new Date().toISOString(),
   },
 ];
 
+// Jeopardy-style categories and questions
+export const jeopardyCategories = [
+  { id: 'cat1', name: 'History', color: 'bg-blue-700' },
+  { id: 'cat2', name: 'Science', color: 'bg-blue-700' },
+  { id: 'cat3', name: 'Sports', color: 'bg-blue-700' },
+  { id: 'cat4', name: 'Movies', color: 'bg-blue-700' },
+  { id: 'cat5', name: 'Music', color: 'bg-blue-700' },
+];
+
 export const mockQuestions = [
+  // Jeopardy-style questions
   {
     id: 'Q001',
-    type: 'multiple_choice',
-    question: 'What is the capital of France?',
-    options: ['London', 'Berlin', 'Paris', 'Madrid'],
-    correctAnswer: 2,
-    points: 100,
+    format: 'jeopardy',
+    category: 'History',
+    categoryId: 'cat1',
+    pointValue: 200,
+    question: 'This U.S. President appears on the $20 bill',
+    answer: 'Who is Andrew Jackson?',
+    options: ['George Washington', 'Andrew Jackson', 'Abraham Lincoln', 'Thomas Jefferson'],
+    correctAnswer: 1,
     timeLimit: 30,
   },
   {
     id: 'Q002',
-    type: 'true_false',
-    question: 'The Great Wall of China is visible from space.',
-    correctAnswer: false,
-    points: 100,
-    timeLimit: 20,
-  },
-  {
-    id: 'Q003',
-    type: 'multiple_choice',
-    question: 'Which planet is known as the Red Planet?',
+    format: 'jeopardy',
+    category: 'Science',
+    categoryId: 'cat2',
+    pointValue: 200,
+    question: 'This planet is known as the Red Planet',
+    answer: 'What is Mars?',
     options: ['Venus', 'Mars', 'Jupiter', 'Saturn'],
     correctAnswer: 1,
-    points: 150,
-    timeLimit: 25,
-  },
-  {
-    id: 'Q004',
-    type: 'fastest_finger',
-    question: 'First to buzz: What year did World War II end?',
-    correctAnswer: '1945',
-    points: 200,
-    timeLimit: 15,
-  },
-  {
-    id: 'Q005',
-    type: 'survey',
-    question: 'Name a popular pizza topping',
-    answers: [
-      { text: 'Pepperoni', points: 45 },
-      { text: 'Mushrooms', points: 22 },
-      { text: 'Sausage', points: 15 },
-      { text: 'Onions', points: 10 },
-      { text: 'Peppers', points: 8 },
-    ],
-    totalPoints: 100,
-    timeLimit: 40,
-  },
-  {
-    id: 'Q006',
-    type: 'multiple_choice',
-    question: 'Who painted the Mona Lisa?',
-    options: ['Michelangelo', 'Leonardo da Vinci', 'Raphael', 'Donatello'],
-    correctAnswer: 1,
-    points: 100,
     timeLimit: 30,
   },
   {
+    id: 'Q003',
+    format: 'jeopardy',
+    category: 'Sports',
+    categoryId: 'cat3',
+    pointValue: 400,
+    question: 'This NBA player has won the most championships',
+    answer: 'Who is Bill Russell?',
+    options: ['Michael Jordan', 'Bill Russell', 'LeBron James', 'Kobe Bryant'],
+    correctAnswer: 1,
+    timeLimit: 30,
+  },
+  
+  // Millionaire-style questions
+  {
+    id: 'Q004',
+    format: 'millionaire',
+    difficulty: 'easy',
+    pointValue: 100,
+    question: 'What is the capital of France?',
+    options: ['A: London', 'B: Berlin', 'C: Paris', 'D: Madrid'],
+    correctAnswer: 2,
+    lifelines: ['50-50', 'Ask the Audience', 'Phone a Friend'],
+    timeLimit: 45,
+  },
+  {
+    id: 'Q005',
+    format: 'millionaire',
+    difficulty: 'medium',
+    pointValue: 500,
+    question: 'Which planet is closest to the Sun?',
+    options: ['A: Venus', 'B: Mercury', 'C: Mars', 'D: Earth'],
+    correctAnswer: 1,
+    lifelines: ['50-50', 'Ask the Audience'],
+    timeLimit: 45,
+  },
+  
+  // Family Feud-style questions
+  {
+    id: 'Q006',
+    format: 'family_feud',
+    question: 'Name a popular pizza topping',
+    answers: [
+      { text: 'Pepperoni', points: 45, revealed: false },
+      { text: 'Mushrooms', points: 22, revealed: false },
+      { text: 'Sausage', points: 15, revealed: false },
+      { text: 'Onions', points: 10, revealed: false },
+      { text: 'Peppers', points: 8, revealed: false },
+    ],
+    strikes: 0,
+    maxStrikes: 3,
+    timeLimit: 60,
+  },
+  {
     id: 'Q007',
-    type: 'true_false',
-    question: 'Bananas grow on trees.',
+    format: 'family_feud',
+    question: 'Name something you find at the beach',
+    answers: [
+      { text: 'Sand', points: 38, revealed: false },
+      { text: 'Water', points: 25, revealed: false },
+      { text: 'Seashells', points: 18, revealed: false },
+      { text: 'Towels', points: 12, revealed: false },
+      { text: 'Umbrellas', points: 7, revealed: false },
+    ],
+    strikes: 0,
+    maxStrikes: 3,
+    timeLimit: 60,
+  },
+  
+  // Majority Rules questions
+  {
+    id: 'Q008',
+    format: 'majority_rules',
+    question: 'Which is the better sport?',
+    options: ['Football', 'Basketball', 'Baseball', 'Soccer'],
+    correctAnswer: 'majority', // Answer is determined by majority vote
+    timeLimit: 30,
+  },
+  
+  // Last Man Standing - True/False
+  {
+    id: 'Q009',
+    format: 'last_man_standing',
+    question: 'The Great Wall of China is visible from space',
     correctAnswer: false,
-    points: 100,
+    eliminates: true,
     timeLimit: 20,
   },
   {
-    id: 'Q008',
-    type: 'multiple_choice',
-    question: 'What is the largest ocean on Earth?',
-    options: ['Atlantic Ocean', 'Indian Ocean', 'Arctic Ocean', 'Pacific Ocean'],
-    correctAnswer: 3,
-    points: 100,
-    timeLimit: 25,
-  },
-  {
-    id: 'Q009',
-    type: 'fastest_finger',
-    question: 'First to buzz: How many continents are there?',
-    correctAnswer: '7',
-    points: 200,
-    timeLimit: 15,
-  },
-  {
     id: 'Q010',
-    type: 'survey',
-    question: 'Name a popular social media platform',
-    answers: [
-      { text: 'Facebook', points: 35 },
-      { text: 'Instagram', points: 28 },
-      { text: 'Twitter/X', points: 18 },
-      { text: 'TikTok', points: 12 },
-      { text: 'LinkedIn', points: 7 },
-    ],
-    totalPoints: 100,
-    timeLimit: 40,
+    format: 'last_man_standing',
+    question: 'Bananas grow on trees',
+    correctAnswer: false,
+    eliminates: true,
+    timeLimit: 20,
   },
 ];
 
@@ -128,69 +152,44 @@ export const mockPlayers = [
   {
     id: 'P001',
     name: 'Alex Thunder',
-    gameCode: 'QUIZ42',
-    score: 450,
-    correctAnswers: 5,
-    fastestBuzzer: true,
+    gameCode: 'TRIVIA',
+    score: 1200,
+    correctAnswers: 6,
+    eliminated: false,
     joinedAt: new Date().toISOString(),
   },
   {
     id: 'P002',
     name: 'Sarah Champion',
-    gameCode: 'QUIZ42',
-    score: 380,
-    correctAnswers: 4,
-    fastestBuzzer: false,
+    gameCode: 'TRIVIA',
+    score: 950,
+    correctAnswers: 5,
+    eliminated: false,
     joinedAt: new Date().toISOString(),
   },
   {
     id: 'P003',
     name: 'Mike Genius',
-    gameCode: 'QUIZ42',
-    score: 320,
+    gameCode: 'TRIVIA',
+    score: 800,
     correctAnswers: 4,
-    fastestBuzzer: false,
+    eliminated: false,
     joinedAt: new Date().toISOString(),
   },
   {
     id: 'P004',
     name: 'Emma Swift',
-    gameCode: 'QUIZ42',
-    score: 290,
-    correctAnswers: 3,
-    fastestBuzzer: false,
-    joinedAt: new Date().toISOString(),
-  },
-  {
-    id: 'P005',
-    name: 'David Brain',
-    gameCode: 'QUIZ42',
-    score: 250,
-    correctAnswers: 3,
-    fastestBuzzer: false,
+    gameCode: 'TRIVIA',
+    score: 650,
+    correctAnswers: 4,
+    eliminated: false,
     joinedAt: new Date().toISOString(),
   },
 ];
 
 export const mockLeaderboard = [
-  { rank: 1, name: 'Alex Thunder', score: 450, correctAnswers: 5, trend: 'up' },
-  { rank: 2, name: 'Sarah Champion', score: 380, correctAnswers: 4, trend: 'same' },
-  { rank: 3, name: 'Mike Genius', score: 320, correctAnswers: 4, trend: 'down' },
-  { rank: 4, name: 'Emma Swift', score: 290, correctAnswers: 3, trend: 'up' },
-  { rank: 5, name: 'David Brain', score: 250, correctAnswers: 3, trend: 'same' },
-  { rank: 6, name: 'Lisa Smart', score: 220, correctAnswers: 3, trend: 'up' },
-  { rank: 7, name: 'Tom Quick', score: 180, correctAnswers: 2, trend: 'down' },
-  { rank: 8, name: 'Nina Flash', score: 150, correctAnswers: 2, trend: 'same' },
+  { rank: 1, name: 'Alex Thunder', score: 1200, correctAnswers: 6, trend: 'up' },
+  { rank: 2, name: 'Sarah Champion', score: 950, correctAnswers: 5, trend: 'same' },
+  { rank: 3, name: 'Mike Genius', score: 800, correctAnswers: 4, trend: 'down' },
+  { rank: 4, name: 'Emma Swift', score: 650, correctAnswers: 4, trend: 'up' },
 ];
-
-// Game state management helper
-export const getGameState = (gameCode) => {
-  const game = mockGames.find(g => g.code === gameCode);
-  if (!game) return null;
-  
-  return {
-    ...game,
-    players: mockPlayers.filter(p => p.gameCode === gameCode),
-    currentQuestionData: mockQuestions[game.currentQuestion] || null,
-  };
-};
