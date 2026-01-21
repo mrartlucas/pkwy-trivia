@@ -11,6 +11,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Play, Plus, Tv, Users, Edit, Trash2, Settings } from 'lucide-react';
 import { mockGames, mockQuestions } from '../mockData';
 import { toast } from '../hooks/use-toast';
+import QuestionImport from '../components/QuestionImport';
 
 const HostDashboard = () => {
   const navigate = useNavigate();
