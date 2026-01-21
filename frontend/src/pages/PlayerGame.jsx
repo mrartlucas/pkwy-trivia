@@ -294,24 +294,65 @@ const PlayerGame = () => {
 
             {/* Family Feud - Survey Style */}
             {format === 'family_feud' && question.answers && (
-              <div className="space-y-3">
-                <p className="text-center text-muted-foreground text-sm">Select the most popular answer</p>
-                {question.answers.map((answer, index) => (
-                  <Button
-                    key={index}
-                    onClick={() => handleAnswerSelect(index)}
-                    disabled={gameState === 'answered' || answer.revealed}
-                    className="w-full h-14 text-lg font-medium justify-between transition-all duration-300 transform hover:scale-105"
-                    variant="outline"
-                  >
-                    <span>{answer.revealed || gameState === 'answered' ? answer.text : '???'}</span>
-                    {gameState === 'answered' && (
-                      <span className="font-bold" style={{ color: branding.colors.primary }}>
-                        {answer.points} pts
-                      </span>
-                    )}
-                  </Button>
-                ))}
+              <div className="space-y-4">
+                <p className="text-center text-muted-foreground text-sm font-medium">
+                  Type your answer or select from the board
+                </p>
+                
+                {/* Text Input for Custom Answer */}
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Type your answer..."
+                    className="h-16 text-lg text-center font-bold uppercase"
+                    disabled={gameState === 'answered'}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && e.target.value) {
+                        // In real implementation, check against all answers
+                        const matchIndex = question.answers.findIndex(
+                          a => a.text.toLowerCase() === e.target.value.toLowerCase()
+                        );
+                        if (matchIndex >= 0) {
+                          handleAnswerSelect(matchIndex);
+                        } else {
+                          toast({
+                            title: 'Not on the board!',
+                            description: 'Try another answer',
+                            variant: 'destructive',
+                          });
+                        }
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className="text-center text-sm text-muted-foreground">- OR -</div>
+
+                {/* Quick Select Buttons - Show actual answers */}
+                <div className="space-y-2">
+                  {question.answers.map((answer, index) => (
+                    <Button
+                      key={index}
+                      onClick={() => handleAnswerSelect(index)}
+                      disabled={gameState === 'answered'}
+                      className="w-full h-14 text-lg font-medium justify-between transition-all duration-300 transform hover:scale-105"
+                      variant="outline"
+                    >
+                      <span>{answer.text}</span>
+                      {gameState === 'answered' && (
+                        <span className="font-bold" style={{ color: branding.colors.primary }}>
+                          {answer.points} pts
+                        </span>
+                      )}
+                    </Button>
+                  ))}
+                </div>
+                
+                {gameState === 'answered' && (
+                  <div className="text-center text-sm text-muted-foreground mt-4">
+                    Top answers revealed on TV!
+                  </div>
+                )}
               </div>
             )}
 
