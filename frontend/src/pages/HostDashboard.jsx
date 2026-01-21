@@ -347,10 +347,10 @@ const HostDashboard = () => {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium capitalize">
-                              {question.type.replace('_', ' ')}
+                              {question.format ? question.format.replace('_', ' ') : question.type ? question.type.replace('_', ' ') : 'Question'}
                             </span>
                             <span className="text-sm text-muted-foreground">
-                              {question.points} pts • {question.timeLimit}s
+                              {question.points || question.pointValue || 100} pts • {question.timeLimit}s
                             </span>
                           </div>
                           <p className="text-lg font-medium">{question.question}</p>
