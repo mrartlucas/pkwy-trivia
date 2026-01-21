@@ -32,6 +32,80 @@ const DirectorPanel = () => {
   const [showAnswer, setShowAnswer] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [playerAnswers, setPlayerAnswers] = useState([]);
+  const [addingBots, setAddingBots] = useState(false);
+
+  // Demo bot functions
+  const addDemoBots = async (count = 5) => {
+    setAddingBots(true);
+    try {
+      const response = await fetch(`${API_URL}/api/demo/${gameCode}/add-bots?count=${count}`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      toast({
+        title: 'Demo Bots Added!',
+        description: `${data.total_players} players now in game`,
+      });
+      fetchGame();
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to add bots',
+        variant: 'destructive',
+      });
+    } finally {
+      setAddingBots(false);
+    }
+  };
+
+  const simulateBotAnswers = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/demo/${gameCode}/simulate-answers`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      toast({
+        title: 'Bots Answered!',
+        description: data.message,
+      });
+      fetchGame();
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to simulate answers',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const removeDemoBots = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/demo/${gameCode}/remove-bots`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      toast({
+        title: 'Bots Removed',
+        description: data.message,
+      });
+      fetchGame();
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to remove bots',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const copyJoinLink = () => {
+    const joinUrl = `${window.location.origin}/?code=${gameCode}`;
+    navigator.clipboard.writeText(joinUrl);
+    toast({
+      title: 'Link Copied!',
+      description: 'Player join link copied to clipboard',
+    });
+  };
 
   // Fetch game data
   const fetchGame = useCallback(async () => {
