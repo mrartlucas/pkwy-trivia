@@ -1,16 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Gamepad2, User, Hash } from 'lucide-react';
+import { Card, CardContent } from '../components/ui/card';
+import { User, Hash } from 'lucide-react';
 import { toast } from '../hooks/use-toast';
+import { getBranding } from '../config/branding';
 
 const PlayerJoin = () => {
   const navigate = useNavigate();
   const [playerName, setPlayerName] = useState('');
   const [gameCode, setGameCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [branding, setBranding] = useState(getBranding());
+
+  useEffect(() => {
+    setBranding(getBranding());
+  }, []);
 
   const handleJoinGame = (e) => {
     e.preventDefault();
@@ -35,10 +41,8 @@ const PlayerJoin = () => {
 
     setLoading(true);
     
-    // Simulate API call
     setTimeout(() => {
       setLoading(false);
-      // Store player info in localStorage for mock
       localStorage.setItem('playerName', playerName);
       localStorage.setItem('gameCode', gameCode.toUpperCase());
       
@@ -52,25 +56,41 @@ const PlayerJoin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/10"></div>
+    <div 
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ 
+        background: `linear-gradient(135deg, ${branding.colors.primary} 0%, ${branding.colors.secondary} 100%)`,
+      }}
+    >
+      <div className="absolute inset-0 bg-black/20"></div>
       
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-0">
-        <CardHeader className="text-center space-y-4 pb-8">
-          <div className="flex justify-center">
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-4 rounded-full">
-              <Gamepad2 className="w-12 h-12 text-white" />
+        <CardContent className="pt-12 pb-8 px-8">
+          {/* Venue Logo and Branding */}
+          <div className="text-center space-y-6 mb-8">
+            <div className="flex justify-center">
+              <img 
+                src={branding.venue.logo} 
+                alt={branding.venue.name}
+                className="h-32 w-auto object-contain"
+              />
+            </div>
+            <div>
+              <h1 
+                className="text-4xl font-black mb-2"
+                style={{ 
+                  fontFamily: branding.fonts.heading,
+                  color: branding.colors.primary 
+                }}
+              >
+                TRIVIA NIGHT
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                Enter your name and game code to play
+              </p>
             </div>
           </div>
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            Join the Game
-          </CardTitle>
-          <CardDescription className="text-base">
-            Enter your name and game code to start playing
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent>
+          
           <form onSubmit={handleJoinGame} className="space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-2">
@@ -105,14 +125,18 @@ const PlayerJoin = () => {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105"
+              className="w-full h-14 text-xl font-bold transition-all duration-300 transform hover:scale-105"
+              style={{
+                backgroundColor: branding.colors.primary,
+                color: branding.colors.accent,
+              }}
             >
-              {loading ? 'Joining...' : 'Join Game'}
+              {loading ? 'Joining...' : 'JOIN GAME'}
             </Button>
           </form>
           
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground mb-3">Want to host a game?</p>
+          <div className="mt-8 text-center">
+            <p className="text-sm text-muted-foreground mb-3">Host a game?</p>
             <Button
               variant="outline"
               onClick={() => navigate('/host')}
