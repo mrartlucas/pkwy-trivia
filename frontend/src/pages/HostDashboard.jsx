@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+/**
+ * Host Dashboard - Game management interface
+ * Connects to real backend API
+ */
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -8,39 +12,67 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Play, Plus, Tv, Users, Edit, Trash2, Settings } from 'lucide-react';
-import { mockGames, mockQuestions } from '../mockData';
+import { Play, Plus, Tv, Users, Trash2, Settings, Upload, Package, Loader2, RefreshCw, Gamepad2 } from 'lucide-react';
 import { toast } from '../hooks/use-toast';
-import QuestionImport from '../components/QuestionImport';
+import { gamesApi, gamePacksApi } from '../services/api';
 import MediaLibrary from '../components/MediaLibrary';
 
 const HostDashboard = () => {
   const navigate = useNavigate();
-  const [games, setGames] = useState(mockGames);
-  const [questions, setQuestions] = useState(mockQuestions);
+  
+  // State
+  const [games, setGames] = useState([]);
+  const [gamePacks, setGamePacks] = useState([]);
+  const [formats, setFormats] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [createGameOpen, setCreateGameOpen] = useState(false);
-  const [createQuestionOpen, setCreateQuestionOpen] = useState(false);
+  const [importPackOpen, setImportPackOpen] = useState(false);
+  const [loadPackOpen, setLoadPackOpen] = useState(false);
+  const [selectedGame, setSelectedGame] = useState(null);
   
   const [newGame, setNewGame] = useState({
     name: '',
     host: '',
+    game_format: '',
   });
 
-  const [newQuestion, setNewQuestion] = useState({
-    type: 'multiple_choice',
-    question: '',
-    options: ['', '', '', ''],
-    correctAnswer: 0,
-    points: 100,
-    timeLimit: 30,
+  const [newPack, setNewPack] = useState({
+    name: '',
+    description: '',
+    tags: '',
+    content: '',
   });
 
-  const generateGameCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  };
+  // Fetch data
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [gamesData, packsData, formatsData] = await Promise.all([
+        gamesApi.getAll(),
+        gamePacksApi.getAll(),
+        gamePacksApi.getFormats(),
+      ]);
+      setGames(gamesData);
+      setGamePacks(packsData);
+      setFormats(formatsData.formats || []);
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleCreateGame = () => {
-    if (!newGame.name || !newGame.host) {
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Create game
+  const handleCreateGame = async () => {
+    if (!newGame.name || !newGame.host || !newGame.game_format) {
       toast({
         title: 'Missing Information',
         description: 'Please fill in all fields.',
@@ -49,75 +81,144 @@ const HostDashboard = () => {
       return;
     }
 
-    const game = {
-      id: `GAME${String(games.length + 1).padStart(3, '0')}`,
-      code: generateGameCode(),
-      name: newGame.name,
-      host: newGame.host,
-      status: 'waiting',
-      currentQuestion: 0,
-      totalQuestions: questions.length,
-      players: [],
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const game = await gamesApi.create({
+        name: newGame.name,
+        host: newGame.host,
+        venue: 'PKWY Tavern',
+        game_format: newGame.game_format,
+      });
 
-    setGames([...games, game]);
-    setCreateGameOpen(false);
-    setNewGame({ name: '', host: '' });
-    
-    toast({
-      title: 'Game Created!',
-      description: `Game code: ${game.code}`,
-    });
+      setGames([...games, game]);
+      setCreateGameOpen(false);
+      setNewGame({ name: '', host: '', game_format: '' });
+      
+      toast({
+        title: 'Game Created!',
+        description: `Game code: ${game.code}`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleCreateQuestion = () => {
-    if (!newQuestion.question) {
+  // Import game pack
+  const handleImportPack = async () => {
+    if (!newPack.name || !newPack.content) {
       toast({
-        title: 'Missing Question',
-        description: 'Please enter a question.',
+        title: 'Missing Information',
+        description: 'Please provide a name and JSON content.',
         variant: 'destructive',
       });
       return;
     }
 
-    const question = {
-      id: `Q${String(questions.length + 1).padStart(3, '0')}`,
-      ...newQuestion,
-    };
+    try {
+      const content = JSON.parse(newPack.content);
+      const pack = await gamePacksApi.create({
+        name: newPack.name,
+        description: newPack.description,
+        tags: newPack.tags.split(',').map(t => t.trim()).filter(Boolean),
+        content,
+      });
 
-    setQuestions([...questions, question]);
-    setCreateQuestionOpen(false);
-    setNewQuestion({
-      type: 'multiple_choice',
-      question: '',
-      options: ['', '', '', ''],
-      correctAnswer: 0,
-      points: 100,
-      timeLimit: 30,
-    });
-    
-    toast({
-      title: 'Question Added!',
-      description: 'Question has been added to the pool.',
-    });
+      setGamePacks([...gamePacks, pack]);
+      setImportPackOpen(false);
+      setNewPack({ name: '', description: '', tags: '', content: '' });
+      
+      toast({
+        title: 'Game Pack Imported!',
+        description: `Format detected: ${pack.game_format}`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message === 'Unexpected token' ? 'Invalid JSON format' : err.message,
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleStartGame = (gameCode) => {
-    toast({
-      title: 'Game Starting!',
-      description: 'Opening TV display...',
-    });
+  // Load pack into game
+  const handleLoadPack = async (packId) => {
+    if (!selectedGame) return;
+
+    try {
+      const pack = await gamePacksApi.getById(packId);
+      await gamesApi.updateContent(selectedGame.id, pack.content);
+      
+      toast({
+        title: 'Pack Loaded!',
+        description: `"${pack.name}" loaded into game`,
+      });
+      
+      setLoadPackOpen(false);
+      setSelectedGame(null);
+      fetchData();
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Delete game
+  const handleDeleteGame = async (gameId) => {
+    try {
+      await gamesApi.delete(gameId);
+      setGames(games.filter(g => g.id !== gameId));
+      toast({
+        title: 'Game Deleted',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Delete pack
+  const handleDeletePack = async (packId) => {
+    try {
+      await gamePacksApi.delete(packId);
+      setGamePacks(gamePacks.filter(p => p.id !== packId));
+      toast({
+        title: 'Game Pack Deleted',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Open TV Display
+  const handleOpenTV = (gameCode) => {
     window.open(`/tv/${gameCode}`, '_blank', 'width=1920,height=1080');
   };
 
-  const handleDeleteGame = (gameId) => {
-    setGames(games.filter(g => g.id !== gameId));
-    toast({
-      title: 'Game Deleted',
-      description: 'The game has been removed.',
-    });
+  // Open Director Panel
+  const handleOpenDirector = (gameCode) => {
+    window.open(`/director/${gameCode}`, '_blank');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
@@ -129,20 +230,21 @@ const HostDashboard = () => {
               <h1 className="text-4xl font-black text-gray-900 mb-2">Host Dashboard</h1>
               <p className="text-lg text-gray-600">Create and manage your trivia games</p>
             </div>
-            <Button
-              onClick={() => navigate('/')}
-              variant="outline"
-            >
-              Player View
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={fetchData} variant="outline" size="icon">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+              <Button onClick={() => navigate('/')} variant="outline">
+                Player View
+              </Button>
+            </div>
           </div>
         </div>
 
         <Tabs defaultValue="games" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 max-w-4xl">
+          <TabsList className="grid w-full grid-cols-4 max-w-3xl">
             <TabsTrigger value="games">Games</TabsTrigger>
-            <TabsTrigger value="questions">Question Bank</TabsTrigger>
-            <TabsTrigger value="import">Import & Packs</TabsTrigger>
+            <TabsTrigger value="packs">Game Packs</TabsTrigger>
             <TabsTrigger value="media">Media Library</TabsTrigger>
             <TabsTrigger value="docs">Documentation</TabsTrigger>
           </TabsList>
@@ -150,10 +252,10 @@ const HostDashboard = () => {
           {/* Games Tab */}
           <TabsContent value="games" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Your Games</h2>
+              <h2 className="text-2xl font-bold">Your Games ({games.length})</h2>
               <Dialog open={createGameOpen} onOpenChange={setCreateGameOpen}>
                 <DialogTrigger asChild>
-                  <Button className="gap-2">
+                  <Button className="gap-2" data-testid="create-game-btn">
                     <Plus className="w-4 h-4" />
                     Create Game
                   </Button>
@@ -167,11 +269,30 @@ const HostDashboard = () => {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
+                      <Label>Game Format</Label>
+                      <Select
+                        value={newGame.game_format}
+                        onValueChange={(value) => setNewGame({ ...newGame, game_format: value })}
+                      >
+                        <SelectTrigger data-testid="game-format-select">
+                          <SelectValue placeholder="Select a game format" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {formats.map((format) => (
+                            <SelectItem key={format.value} value={format.value}>
+                              {format.value}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
                       <Label>Game Name</Label>
                       <Input
                         placeholder="e.g., Friday Night Trivia"
                         value={newGame.name}
                         onChange={(e) => setNewGame({ ...newGame, name: e.target.value })}
+                        data-testid="game-name-input"
                       />
                     </div>
                     <div className="space-y-2">
@@ -180,9 +301,10 @@ const HostDashboard = () => {
                         placeholder="Your name"
                         value={newGame.host}
                         onChange={(e) => setNewGame({ ...newGame, host: e.target.value })}
+                        data-testid="host-name-input"
                       />
                     </div>
-                    <Button onClick={handleCreateGame} className="w-full">
+                    <Button onClick={handleCreateGame} className="w-full" data-testid="submit-create-game">
                       Create Game
                     </Button>
                   </div>
@@ -190,216 +312,271 @@ const HostDashboard = () => {
               </Dialog>
             </div>
 
-            <div className="grid gap-4">
-              {games.map((game) => (
-                <Card key={game.id}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-xl font-bold">{game.name}</h3>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            game.status === 'active' ? 'bg-green-100 text-green-700' :
-                            game.status === 'waiting' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
-                            {game.status}
-                          </span>
+            {games.length === 0 ? (
+              <Card className="p-12 text-center">
+                <Gamepad2 className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                <h3 className="text-xl font-bold text-gray-600 mb-2">No Games Yet</h3>
+                <p className="text-gray-500 mb-4">Create your first game to get started!</p>
+                <Button onClick={() => setCreateGameOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Game
+                </Button>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {games.map((game) => (
+                  <Card key={game.id} data-testid={`game-card-${game.code}`}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-xl font-bold">{game.name}</h3>
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              game.status === 'active' ? 'bg-green-100 text-green-700' :
+                              game.status === 'waiting' ? 'bg-yellow-100 text-yellow-700' :
+                              game.status === 'finished' ? 'bg-gray-100 text-gray-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
+                              {game.status}
+                            </span>
+                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                              {game.game_format}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">Host: {game.host}</p>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="font-mono font-bold text-indigo-600">Code: {game.code}</span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-4 h-4" />
+                              {game.players_count} players
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground">Host: {game.host}</p>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="font-mono font-bold text-indigo-600">Code: {game.code}</span>
-                          <span className="flex items-center gap-1">
-                            <Users className="w-4 h-4" />
-                            {game.players.length} players
-                          </span>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => {
+                              setSelectedGame(game);
+                              setLoadPackOpen(true);
+                            }}
+                            variant="outline"
+                            className="gap-2"
+                          >
+                            <Package className="w-4 h-4" />
+                            Load Pack
+                          </Button>
+                          <Button
+                            onClick={() => handleOpenDirector(game.code)}
+                            variant="outline"
+                            className="gap-2"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Director
+                          </Button>
+                          <Button
+                            onClick={() => handleOpenTV(game.code)}
+                            className="gap-2"
+                          >
+                            <Tv className="w-4 h-4" />
+                            TV Display
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleDeleteGame(game.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => handleStartGame(game.code)}
-                          className="gap-2"
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Load Pack Dialog */}
+            <Dialog open={loadPackOpen} onOpenChange={setLoadPackOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Load Game Pack</DialogTitle>
+                  <DialogDescription>
+                    Select a game pack to load into "{selectedGame?.name}"
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {gamePacks.filter(p => p.game_format === selectedGame?.game_format).length === 0 ? (
+                    <p className="text-center text-gray-500 py-8">
+                      No packs available for {selectedGame?.game_format}. Import a pack first!
+                    </p>
+                  ) : (
+                    gamePacks
+                      .filter(p => p.game_format === selectedGame?.game_format)
+                      .map((pack) => (
+                        <Card 
+                          key={pack.id} 
+                          className="cursor-pointer hover:bg-gray-50"
+                          onClick={() => handleLoadPack(pack.id)}
                         >
-                          <Tv className="w-4 h-4" />
-                          TV Display
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                        >
-                          <Settings className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleDeleteGame(game.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-bold">{pack.name}</h4>
+                                <p className="text-sm text-gray-500">{pack.description}</p>
+                                <div className="flex gap-2 mt-2">
+                                  {pack.tags?.map((tag, i) => (
+                                    <span key={i} className="px-2 py-1 bg-gray-100 rounded text-xs">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <Button size="sm">Load</Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
-          {/* Questions Tab */}
-          <TabsContent value="questions" className="space-y-6">
+          {/* Game Packs Tab */}
+          <TabsContent value="packs" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Question Bank ({questions.length})</h2>
-              <Dialog open={createQuestionOpen} onOpenChange={setCreateQuestionOpen}>
+              <h2 className="text-2xl font-bold">Game Packs ({gamePacks.length})</h2>
+              <Dialog open={importPackOpen} onOpenChange={setImportPackOpen}>
                 <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Add Question
+                  <Button className="gap-2" data-testid="import-pack-btn">
+                    <Upload className="w-4 h-4" />
+                    Import Pack
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Add New Question</DialogTitle>
+                    <DialogTitle>Import Game Pack</DialogTitle>
                     <DialogDescription>
-                      Create a new question for your trivia game
+                      Paste JSON content generated from ChatGPT
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Question Type</Label>
-                      <Select
-                        value={newQuestion.type}
-                        onValueChange={(value) => setNewQuestion({ ...newQuestion, type: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                          <SelectItem value="true_false">True/False</SelectItem>
-                          <SelectItem value="fastest_finger">Fastest Finger</SelectItem>
-                          <SelectItem value="survey">Survey</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Question</Label>
-                      <Textarea
-                        placeholder="Enter your question"
-                        value={newQuestion.question}
-                        onChange={(e) => setNewQuestion({ ...newQuestion, question: e.target.value })}
-                        rows={3}
+                      <Label>Pack Name</Label>
+                      <Input
+                        placeholder="e.g., Pop Culture Pack 1"
+                        value={newPack.name}
+                        onChange={(e) => setNewPack({ ...newPack, name: e.target.value })}
+                        data-testid="pack-name-input"
                       />
                     </div>
-
-                    {newQuestion.type === 'multiple_choice' && (
-                      <div className="space-y-3">
-                        <Label>Answer Options</Label>
-                        {newQuestion.options.map((option, index) => (
-                          <div key={index} className="flex gap-2">
-                            <Input
-                              placeholder={`Option ${index + 1}`}
-                              value={option}
-                              onChange={(e) => {
-                                const newOptions = [...newQuestion.options];
-                                newOptions[index] = e.target.value;
-                                setNewQuestion({ ...newQuestion, options: newOptions });
-                              }}
-                            />
-                            <Button
-                              variant={newQuestion.correctAnswer === index ? 'default' : 'outline'}
-                              onClick={() => setNewQuestion({ ...newQuestion, correctAnswer: index })}
-                            >
-                              {newQuestion.correctAnswer === index ? 'Correct' : 'Mark Correct'}
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Points</Label>
-                        <Input
-                          type="number"
-                          value={newQuestion.points}
-                          onChange={(e) => setNewQuestion({ ...newQuestion, points: parseInt(e.target.value) })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Time Limit (seconds)</Label>
-                        <Input
-                          type="number"
-                          value={newQuestion.timeLimit}
-                          onChange={(e) => setNewQuestion({ ...newQuestion, timeLimit: parseInt(e.target.value) })}
-                        />
-                      </div>
+                    <div className="space-y-2">
+                      <Label>Description (optional)</Label>
+                      <Input
+                        placeholder="Brief description of this pack"
+                        value={newPack.description}
+                        onChange={(e) => setNewPack({ ...newPack, description: e.target.value })}
+                      />
                     </div>
-
-                    <Button onClick={handleCreateQuestion} className="w-full">
-                      Add Question
+                    <div className="space-y-2">
+                      <Label>Tags (comma-separated)</Label>
+                      <Input
+                        placeholder="e.g., movies, 90s, pop culture"
+                        value={newPack.tags}
+                        onChange={(e) => setNewPack({ ...newPack, tags: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>JSON Content</Label>
+                      <Textarea
+                        placeholder='Paste the JSON from ChatGPT here...'
+                        value={newPack.content}
+                        onChange={(e) => setNewPack({ ...newPack, content: e.target.value })}
+                        rows={12}
+                        className="font-mono text-sm"
+                        data-testid="pack-json-input"
+                      />
+                    </div>
+                    <Button onClick={handleImportPack} className="w-full" data-testid="submit-import-pack">
+                      Import Pack
                     </Button>
                   </div>
                 </DialogContent>
               </Dialog>
             </div>
 
-            <div className="grid gap-4">
-              {questions.map((question) => (
-                <Card key={question.id}>
-                  <CardContent className="p-6">
-                    <div className="space-y-3">
+            {gamePacks.length === 0 ? (
+              <Card className="p-12 text-center">
+                <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                <h3 className="text-xl font-bold text-gray-600 mb-2">No Game Packs</h3>
+                <p className="text-gray-500 mb-4">Import game content from ChatGPT to get started!</p>
+                <Button onClick={() => setImportPackOpen(true)}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import Pack
+                </Button>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {gamePacks.map((pack) => (
+                  <Card key={pack.id} data-testid={`pack-card-${pack.id}`}>
+                    <CardHeader>
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium capitalize">
-                              {question.format ? question.format.replace('_', ' ') : question.type ? question.type.replace('_', ' ') : 'Question'}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              {question.points || question.pointValue || 100} pts • {question.timeLimit}s
-                            </span>
-                          </div>
-                          <p className="text-lg font-medium">{question.question}</p>
+                        <div>
+                          <CardTitle className="text-lg">{pack.name}</CardTitle>
+                          <CardDescription>{pack.description}</CardDescription>
                         </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="icon">
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button variant="outline" size="icon">
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeletePack(pack.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                      
-                      {question.type === 'multiple_choice' && (
-                        <div className="grid grid-cols-2 gap-2 mt-3">
-                          {question.options.map((option, index) => (
-                            <div
-                              key={index}
-                              className={`p-3 rounded-lg text-sm ${
-                                index === question.correctAnswer
-                                  ? 'bg-green-100 text-green-700 font-medium'
-                                  : 'bg-gray-100 text-gray-700'
-                              }`}
-                            >
-                              {option}
-                            </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                          {pack.game_format}
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {pack.tags?.map((tag, i) => (
+                            <span key={i} className="px-2 py-1 bg-gray-100 rounded text-xs">
+                              {tag}
+                            </span>
                           ))}
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
+                        <p className="text-xs text-gray-500">
+                          Created: {new Date(pack.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
-          {/* Import & Game Packs Tab */}
-          <TabsContent value="import" className="space-y-6">
-            <QuestionImport 
-              onImportComplete={(questions) => {
-                setQuestions([...questions, ...questions]);
-              }}
-            />
+            {/* ChatGPT Prompt Helper */}
+            <Card className="mt-8">
+              <CardHeader>
+                <CardTitle>Generate Content with ChatGPT</CardTitle>
+                <CardDescription>
+                  Use the game specification prompt to generate content
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
+                  <li>Open ChatGPT and paste the game specification prompt (from your saved docs)</li>
+                  <li>Tell it which game format you want: e.g., "Generate a PERIL! round about movies"</li>
+                  <li>Copy the JSON output and paste it in the Import dialog above</li>
+                </ol>
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium mb-2">Example request:</p>
+                  <code className="text-xs text-gray-600">
+                    Generate a SURVEY SAYS! round with questions about common bar behaviors
+                  </code>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Media Library Tab */}
@@ -413,351 +590,39 @@ const HostDashboard = () => {
               <CardHeader>
                 <CardTitle>System Documentation</CardTitle>
                 <CardDescription>
-                  Download complete guides, specs, and technical documentation
+                  Download complete guides and specifications
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Main Documentation */}
-                  <Card className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">📚</span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg mb-1">Complete Documentation</h3>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Full system guide with user guides, technical details, and setup instructions (50+ pages)
-                          </p>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={() => window.open('/COMPLETE_DOCUMENTATION.md', '_blank')}
-                            >
-                              View Online
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = '/COMPLETE_DOCUMENTATION.md';
-                                link.download = 'PKWY_Complete_Documentation.md';
-                                link.click();
-                              }}
-                            >
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Roadmap */}
-                  <Card className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">🗺️</span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg mb-1">Project Roadmap</h3>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            What's completed vs what's remaining, implementation plan (15+ pages)
-                          </p>
-                          <div className="flex gap-2">
-                            <Button 
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { name: 'Complete Documentation', file: 'COMPLETE_DOCUMENTATION.md', icon: '📚' },
+                    { name: 'Project Roadmap', file: 'ROADMAP.md', icon: '🗺️' },
+                    { name: 'Media Organization', file: 'MEDIA_ORGANIZATION_GUIDE.md', icon: '🏷️' },
+                    { name: 'Media Formats', file: 'MEDIA_FORMAT_GUIDE.md', icon: '🎨' },
+                    { name: 'Video Specs', file: 'VIDEO_SPECS.md', icon: '🎬' },
+                    { name: 'Backend Contracts', file: 'contracts.md', icon: '⚙️' },
+                  ].map((doc) => (
+                    <Card key={doc.file} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{doc.icon}</span>
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{doc.name}</h4>
+                            <Button
                               size="sm"
-                              onClick={() => window.open('/ROADMAP.md', '_blank')}
+                              variant="link"
+                              className="p-0 h-auto"
+                              onClick={() => window.open(`/${doc.file}`, '_blank')}
                             >
-                              View Online
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = '/ROADMAP.md';
-                                link.download = 'PKWY_Roadmap.md';
-                                link.click();
-                              }}
-                            >
-                              Download
+                              View →
                             </Button>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Media Organization */}
-                  <Card className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">🏷️</span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg mb-1">Media Organization Guide</h3>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            How to label graphics, videos, and sounds for correct usage (25+ pages)
-                          </p>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm"
-                              onClick={() => window.open('/MEDIA_ORGANIZATION_GUIDE.md', '_blank')}
-                            >
-                              View Online
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = '/MEDIA_ORGANIZATION_GUIDE.md';
-                                link.download = 'PKWY_Media_Organization.md';
-                                link.click();
-                              }}
-                            >
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Media Format Guide */}
-                  <Card className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">🎨</span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg mb-1">Media Format Guide</h3>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Dzine & Higgsfield AI optimization specs and requirements (30+ pages)
-                          </p>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm"
-                              onClick={() => window.open('/MEDIA_FORMAT_GUIDE.md', '_blank')}
-                            >
-                              View Online
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = '/MEDIA_FORMAT_GUIDE.md';
-                                link.download = 'PKWY_Media_Formats.md';
-                                link.click();
-                              }}
-                            >
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Video Specs */}
-                  <Card className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">🎬</span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg mb-1">Video Specifications</h3>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Video requirements for intros, transitions, and celebrations (15+ pages)
-                          </p>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm"
-                              onClick={() => window.open('/VIDEO_SPECS.md', '_blank')}
-                            >
-                              View Online
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = '/VIDEO_SPECS.md';
-                                link.download = 'PKWY_Video_Specs.md';
-                                link.click();
-                              }}
-                            >
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Backend Contracts */}
-                  <Card className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">⚙️</span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg mb-1">Backend API Contracts</h3>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Technical specs for backend development and WebSocket (20+ pages)
-                          </p>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm"
-                              onClick={() => window.open('/contracts.md', '_blank')}
-                            >
-                              View Online
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = '/contracts.md';
-                                link.download = 'PKWY_Backend_Contracts.md';
-                                link.click();
-                              }}
-                            >
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* QuizXpress Analysis */}
-                  <Card className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">📊</span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg mb-1">QuizXpress Analysis</h3>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Feature comparison and analysis vs QuizXpress (25+ pages)
-                          </p>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm"
-                              onClick={() => window.open('/QUIZXPRESS_ANALYSIS.md', '_blank')}
-                            >
-                              View Online
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = '/QUIZXPRESS_ANALYSIS.md';
-                                link.download = 'PKWY_QuizXpress_Analysis.md';
-                                link.click();
-                              }}
-                            >
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Quick Start */}
-                  <Card className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">🚀</span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg mb-1">Quick Start Guide</h3>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Visual guide with checklists and next steps
-                          </p>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm"
-                              onClick={() => window.open('/QUICK_START.txt', '_blank')}
-                            >
-                              View Online
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = '/QUICK_START.txt';
-                                link.download = 'PKWY_Quick_Start.txt';
-                                link.click();
-                              }}
-                            >
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-
-                {/* Summary Card */}
-                <Card className="mt-6 border-2 border-primary/20">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-2xl">📦</span>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-lg mb-2">Complete Package</h3>
-                        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                          <div>
-                            <p className="text-muted-foreground">Total Files:</p>
-                            <p className="font-bold">8 documents</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Total Pages:</p>
-                            <p className="font-bold">165+ pages</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Size:</p>
-                            <p className="font-bold">~450 KB</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Format:</p>
-                            <p className="font-bold">Markdown (.md)</p>
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          All documentation files are available for download. View online in browser or download to read offline. Markdown files can be opened in any text editor or Markdown viewer.
-                        </p>
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <p className="text-sm font-medium text-blue-900 mb-2">💡 Tip: Start Here</p>
-                          <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                            <li>Download "Complete Documentation" first</li>
-                            <li>Review "Project Roadmap" to see status</li>
-                            <li>Check "Media Organization Guide" for asset creation</li>
-                            <li>Share relevant docs with your team</li>
-                          </ol>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               </CardContent>
             </Card>
           </TabsContent>
