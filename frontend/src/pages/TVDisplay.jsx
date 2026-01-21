@@ -393,6 +393,15 @@ const TVDisplay = () => {
       
     case 'PKWY LIVE!':
       return <PKWYLiveDisplay {...commonProps} playerCount={players.length} />;
+    
+    case 'GAME NIGHT MIX':
+      return (
+        <GameNightMixDisplay 
+          {...commonProps}
+          currentRoundIndex={currentRoundIndex}
+          currentQuestionIndex={currentIndex}
+        />
+      );
       
     default:
       // Fallback to lobby if format unknown
