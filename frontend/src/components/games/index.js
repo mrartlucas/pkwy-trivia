@@ -16,6 +16,7 @@ export { default as NoWhammyDisplay } from './NoWhammyDisplay';
 export { default as BackToSchoolDisplay } from './BackToSchoolDisplay';
 export { default as QuizChaseDisplay } from './QuizChaseDisplay';
 export { default as PKWYLiveDisplay } from './PKWYLiveDisplay';
+export { default as GameNightMixDisplay } from './GameNightMixDisplay';
 
 // Game format to component mapping
 export const gameDisplayMap = {
@@ -32,4 +33,5 @@ export const gameDisplayMap = {
   'BACK TO SCHOOL!': 'BackToSchoolDisplay',
   'QUIZ CHASE': 'QuizChaseDisplay',
   'PKWY LIVE!': 'PKWYLiveDisplay',
+  'GAME NIGHT MIX': 'GameNightMixDisplay',
 };
