@@ -1,74 +1,330 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '../components/ui/card';
-import { Users, Trophy, X as XIcon, Diamond, CheckCircle2 } from 'lucide-react';
+import { Progress } from '../components/ui/progress';
+import { Trophy, Users, Clock, Zap, TrendingUp } from 'lucide-react';
 import { mockQuestions, mockLeaderboard } from '../mockData';
-import { getBranding, formatThemes } from '../config/branding';
 
 const TVDisplay = () => {
   const { gameCode } = useParams();
-  const [branding, setBranding] = useState(getBranding());
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [gameState, setGameState] = useState('lobby');
+  const [gameState, setGameState] = useState('lobby'); // lobby, question, leaderboard, final
+  const [timeLeft, setTimeLeft] = useState(30);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [playerCount, setPlayerCount] = useState(4);
-  const [revealedAnswers, setRevealedAnswers] = useState([]);
-  const [strikes, setStrikes] = useState(0);
-  const [usedLifelines, setUsedLifelines] = useState([]);
+  const [leaderboard, setLeaderboard] = useState(mockLeaderboard);
+  const [playerCount, setPlayerCount] = useState(8);
 
   const question = mockQuestions[currentQuestion];
-  const format = question?.format || 'jeopardy';
-  const theme = formatThemes[format];
 
   useEffect(() => {
-    setBranding(getBranding());
-  }, []);
-
-  useEffect(() => {
+    // Simulate game flow
     const timer = setTimeout(() => {
       if (gameState === 'lobby') {
         setGameState('question');
       }
     }, 5000);
     return () => clearTimeout(timer);
-  }, [gameState]);
+  }, []);
 
   useEffect(() => {
-    if (gameState === 'question' && !showAnswer) {
-      const timer = setTimeout(() => {
-        setShowAnswer(true);
-        // Simulate revealing answers for Family Feud
-        if (format === 'family_feud') {
-          revealAnswersSequentially();
+    if (gameState === 'question' && timeLeft > 0 && !showAnswer) {
+      const timer = setInterval(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    } else if (timeLeft === 0 && !showAnswer) {
+      setShowAnswer(true);
+      setTimeout(() => {
+        if (currentQuestion < mockQuestions.length - 1) {
+          setCurrentQuestion(prev => prev + 1);
+          setShowAnswer(false);
+          setTimeLeft(mockQuestions[currentQuestion + 1].timeLimit);
+          setGameState('leaderboard');
+          setTimeout(() => setGameState('question'), 5000);
+        } else {
+          setGameState('final');
         }
-        setTimeout(() => {
-          if (currentQuestion < mockQuestions.length - 1) {
-            setCurrentQuestion(prev => prev + 1);
-            setShowAnswer(false);
-            setRevealedAnswers([]);
-            setStrikes(0);
-            setUsedLifelines([]);
-            setGameState('leaderboard');
-            setTimeout(() => setGameState('question'), 5000);
-          } else {
-            setGameState('final');
-          }
-        }, format === 'family_feud' ? 8000 : 4000);
-      }, 10000);
-      return () => clearTimeout(timer);
+      }, 3000);
     }
-  }, [gameState, showAnswer, currentQuestion, format]);
+  }, [gameState, timeLeft, showAnswer, currentQuestion]);
 
-  const revealAnswersSequentially = () => {
-    if (format === 'family_feud' && question.answers) {
-      question.answers.forEach((_, index) => {
-        setTimeout(() => {
-          setRevealedAnswers(prev => [...prev, index]);
-        }, index * 1000);
-      });
-    }
-  };
-
-  // Lobby Screen
   if (gameState === 'lobby') {
-    return (\n      <div \n        className={`min-h-screen bg-gradient-to-br ${theme.bgColor} p-8 flex items-center justify-center`}\n      >\n        <div className=\"text-center space-y-12 max-w-5xl w-full\">\n          <div className=\"bg-white/10 backdrop-blur-lg rounded-3xl p-8 border-4 border-white/30\">\n            <img \n              src={branding.venue.logo} \n              alt={branding.venue.name}\n              className=\"h-48 w-auto mx-auto object-contain mb-6\"\n            />\n            <h1 className=\"text-7xl font-black text-white mb-2\" style={{ fontFamily: branding.fonts.heading }}>\n              {branding.venue.name.toUpperCase()}\n            </h1>\n            <p className=\"text-3xl text-white/90\">{branding.venue.tagline}</p>\n          </div>\n          \n          <Card className=\"bg-white/10 backdrop-blur-lg border-4 border-white/30\">\n            <CardContent className=\"p-12\">\n              <p className=\"text-3xl text-white/90 mb-4\">Join with code:</p>\n              <p className=\"text-9xl font-black font-mono tracking-wider text-white mb-8\">\n                {gameCode || 'TRIVIA'}\n              </p>\n              <div className=\"flex items-center justify-center gap-4 text-4xl text-white\">\n                <Users className=\"w-14 h-14\" />\n                <span className=\"font-bold\">{playerCount} Players Connected</span>\n              </div>\n            </CardContent>\n          </Card>\n          \n          <div className=\"flex justify-center gap-4\">\n            <div className=\"w-6 h-6 bg-white rounded-full animate-bounce\" style={{ animationDelay: '0ms' }}></div>\n            <div className=\"w-6 h-6 bg-white rounded-full animate-bounce\" style={{ animationDelay: '200ms' }}></div>\n            <div className=\"w-6 h-6 bg-white rounded-full animate-bounce\" style={{ animationDelay: '400ms' }}></div>\n          </div>\n          \n          <p className=\"text-3xl text-white/90\">Get ready to play!</p>\n        </div>\n      </div>\n    );\n  }\n\n  // Final Results\n  if (gameState === 'final') {\n    return (\n      <div className={`min-h-screen bg-gradient-to-br ${theme.bgColor} p-8`}>\n        <div className=\"max-w-7xl mx-auto\">\n          <div className=\"text-center mb-12\">\n            <img \n              src={branding.venue.logo} \n              alt={branding.venue.name}\n              className=\"h-24 w-auto mx-auto object-contain mb-6\"\n            />\n            <h1 className=\"text-8xl font-black text-white mb-4\" style={{ fontFamily: branding.fonts.heading }}>\n              FINAL STANDINGS\n            </h1>\n          </div>\n          \n          <div className=\"space-y-4\">\n            {mockLeaderboard.slice(0, 5).map((player, index) => (\n              <Card \n                key={player.rank}\n                className={`transform transition-all duration-500 ${\n                  index === 0 \n                    ? 'scale-110' \n                    : 'bg-white/95'\n                }`}\n                style={index === 0 ? {\n                  background: `linear-gradient(135deg, ${branding.colors.primary} 0%, ${branding.colors.secondary} 100%)`\n                } : {}}\n              >\n                <CardContent className=\"p-8\">\n                  <div className=\"flex items-center justify-between\">\n                    <div className=\"flex items-center gap-6\">\n                      <div \n                        className=\"text-7xl font-black\"\n                        style={{ \n                          color: index === 0 ? branding.colors.accent : branding.colors.primary,\n                          fontFamily: branding.fonts.heading\n                        }}\n                      >\n                        #{player.rank}\n                      </div>\n                      {index === 0 && <Trophy className=\"w-16 h-16 text-yellow-400\" />}\n                      <div>\n                        <p \n                          className=\"text-5xl font-bold\"\n                          style={{ color: index === 0 ? branding.colors.accent : branding.colors.text }}\n                        >\n                          {player.name}\n                        </p>\n                        <p \n                          className=\"text-2xl\"\n                          style={{ color: index === 0 ? 'rgba(255,255,255,0.8)' : branding.colors.textLight }}\n                        >\n                          {player.correctAnswers} correct answers\n                        </p>\n                      </div>\n                    </div>\n                    <div \n                      className=\"text-7xl font-black\"\n                      style={{ \n                        color: index === 0 ? branding.colors.accent : branding.colors.primary,\n                        fontFamily: branding.fonts.heading\n                      }}\n                    >\n                      {player.score}\n                    </div>\n                  </div>\n                </CardContent>\n              </Card>\n            ))}\n          </div>\n        </div>\n      </div>\n    );\n  }\n\n  // Leaderboard Screen\n  if (gameState === 'leaderboard') {\n    return (\n      <div className={`min-h-screen bg-gradient-to-br ${theme.bgColor} p-8`}>\n        <div className=\"max-w-7xl mx-auto\">\n          <div className=\"flex items-center justify-between mb-8 bg-white/10 backdrop-blur-sm rounded-2xl p-6\">\n            <img \n              src={branding.venue.logo} \n              alt={branding.venue.name}\n              className=\"h-20 w-auto object-contain\"\n            />\n            <h1 className=\"text-6xl font-black text-white\" style={{ fontFamily: branding.fonts.heading }}>\n              LEADERBOARD\n            </h1>\n            <div className=\"text-3xl text-white font-bold\">\n              After Q{currentQuestion + 1}\n            </div>\n          </div>\n          \n          <div className=\"grid gap-4\">\n            {mockLeaderboard.map((player) => (\n              <Card \n                key={player.rank}\n                className=\"transform transition-all duration-300 bg-white/95\"\n              >\n                <CardContent className=\"p-6\">\n                  <div className=\"flex items-center justify-between\">\n                    <div className=\"flex items-center gap-4\">\n                      <div \n                        className=\"text-5xl font-black w-20\"\n                        style={{ \n                          color: branding.colors.primary,\n                          fontFamily: branding.fonts.heading\n                        }}\n                      >\n                        #{player.rank}\n                      </div>\n                      <div>\n                        <p className=\"text-3xl font-bold\" style={{ color: branding.colors.text }}>\n                          {player.name}\n                        </p>\n                        <p className=\"text-xl\" style={{ color: branding.colors.textLight }}>\n                          {player.correctAnswers} correct\n                        </p>\n                      </div>\n                    </div>\n                    <div \n                      className=\"text-5xl font-black\"\n                      style={{ \n                        color: branding.colors.primary,\n                        fontFamily: branding.fonts.heading\n                      }}\n                    >\n                      {player.score}\n                    </div>\n                  </div>\n                </CardContent>\n              </Card>\n            ))}\n          </div>\n        </div>\n      </div>\n    );\n  }\n\n  // Jeopardy-Style Display\n  if (format === 'jeopardy') {\n    return (\n      <div className=\"min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 p-8\">\n        <div className=\"max-w-7xl mx-auto\">\n          <div className=\"flex items-center justify-between mb-8 bg-blue-800/50 backdrop-blur-sm rounded-2xl p-6 border-4 border-yellow-400\">\n            <img \n              src={branding.venue.logo} \n              alt={branding.venue.name}\n              className=\"h-16 w-auto object-contain\"\n            />\n            <div className=\"text-center\">\n              <p className=\"text-yellow-400 text-2xl font-bold\" style={{ fontFamily: branding.fonts.heading }}>\n                {question.category?.toUpperCase()}\n              </p>\n              <p className=\"text-white text-xl\">for ${question.pointValue}</p>\n            </div>\n            <div className=\"flex items-center gap-4\">\n              <Users className=\"w-8 h-8 text-yellow-400\" />\n              <span className=\"text-3xl font-bold text-white\">{playerCount}</span>\n            </div>\n          </div>\n\n          <Card className=\"bg-blue-900 border-8 border-yellow-400 shadow-2xl\">\n            <CardContent className=\"p-12\">\n              {!showAnswer ? (\n                <div className=\"text-center space-y-8\">\n                  <h1 \n                    className=\"text-6xl font-bold text-yellow-400 min-h-[300px] flex items-center justify-center\"\n                    style={{ fontFamily: branding.fonts.heading }}\n                  >\n                    {question.question}\n                  </h1>\n                </div>\n              ) : (\n                <div className=\"text-center space-y-8\">\n                  <h1 \n                    className=\"text-7xl font-black text-green-400 mb-8\"\n                    style={{ fontFamily: branding.fonts.heading }}\n                  >\n                    CORRECT ANSWER\n                  </h1>\n                  <p \n                    className=\"text-6xl font-bold text-yellow-400\"\n                    style={{ fontFamily: branding.fonts.heading }}\n                  >\n                    {question.answer || question.options[question.correctAnswer]}\n                  </p>\n                </div>\n              )}\n\n              {!showAnswer && (\n                <div className=\"grid grid-cols-2 gap-6 mt-12\">\n                  {question.options?.map((option, index) => (\n                    <div\n                      key={index}\n                      className=\"bg-blue-700 border-4 border-yellow-400 p-6 rounded-xl\"\n                    >\n                      <p className=\"text-3xl font-bold text-yellow-400 text-center\">\n                        {option}\n                      </p>\n                    </div>\n                  ))}\n                </div>\n              )}\n            </CardContent>\n          </Card>\n        </div>\n      </div>\n    );\n  }\n\n  // Millionaire-Style Display\n  if (format === 'millionaire') {\n    const moneyLadder = [\n      { level: 15, amount: '$1,000,000', color: 'from-yellow-400 to-orange-400' },\n      { level: 14, amount: '$500,000', color: 'from-purple-400 to-purple-500' },\n      { level: 13, amount: '$250,000', color: 'from-purple-500 to-purple-600' },\n      { level: 12, amount: '$125,000', color: 'from-purple-500 to-indigo-600' },\n      { level: 11, amount: '$64,000', color: 'from-purple-600 to-indigo-600' },\n      { level: 10, amount: '$32,000', color: 'from-indigo-600 to-indigo-700' },\n      { level: 9, amount: '$16,000', color: 'from-indigo-700 to-indigo-800' },\n      { level: 8, amount: '$8,000', color: 'from-indigo-700 to-blue-800' },\n      { level: 7, amount: '$4,000', color: 'from-indigo-800 to-blue-800' },\n      { level: 6, amount: '$2,000', color: 'from-blue-800 to-blue-900' },\n      { level: 5, amount: '$1,000', color: 'from-blue-900 to-slate-900' },\n    ];\n\n    const currentLevel = 7; // Mock current level\n\n    return (\n      <div className=\"min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-purple-900 p-8\">\n        <div className=\"max-w-7xl mx-auto\">\n          {/* Header */}\n          <div className=\"flex items-center justify-between mb-8 bg-purple-800/50 backdrop-blur-sm rounded-2xl p-6 border-4 border-orange-400\">\n            <img \n              src={branding.venue.logo} \n              alt={branding.venue.name}\n              className=\"h-16 w-auto object-contain\"\n            />\n            <div className=\"text-center\">\n              <p className=\"text-orange-400 text-3xl font-bold\" style={{ fontFamily: branding.fonts.heading }}>\n                MILLION DOLLAR QUESTION\n              </p>\n            </div>\n            <div className=\"flex items-center gap-4\">\n              <Users className=\"w-8 h-8 text-orange-400\" />\n              <span className=\"text-3xl font-bold text-white\">{playerCount}</span>\n            </div>\n          </div>\n\n          <div className=\"grid grid-cols-12 gap-6\">\n            {/* Main Question Area */}\n            <div className=\"col-span-9\">\n              <Card className=\"bg-gradient-to-br from-purple-800 to-indigo-800 border-4 border-orange-400 shadow-2xl\">\n                <CardContent className=\"p-8\">\n                  {/* Question */}\n                  <div className=\"text-center mb-8\">\n                    <h1 \n                      className=\"text-4xl font-bold text-orange-400 min-h-[120px] flex items-center justify-center\"\n                      style={{ fontFamily: branding.fonts.heading }}\n                    >\n                      {question.question}\n                    </h1>\n                  </div>\n\n                  {/* Answer Options */}\n                  <div className=\"space-y-4\">\n                    {question.options?.map((option, index) => {\n                      const isCorrect = index === question.correctAnswer;\n                      const showCorrect = showAnswer && isCorrect;\n                      \n                      return (\n                        <div\n                          key={index}\n                          className={`p-6 rounded-xl border-4 transition-all duration-500 ${\n                            showCorrect\n                              ? 'bg-green-500 border-green-400'\n                              : 'bg-purple-700/50 border-purple-500'\n                          }`}\n                        >\n                          <div className=\"flex items-center gap-4\">\n                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl font-black ${\n                              showCorrect ? 'bg-white text-green-500' : 'bg-orange-400 text-purple-900'\n                            }`}>\n                              {String.fromCharCode(65 + index)}\n                            </div>\n                            <p className={`text-2xl font-bold ${\n                              showCorrect ? 'text-white' : 'text-orange-300'\n                            }`}>\n                              {option}\n                            </p>\n                          </div>\n                        </div>\n                      );\n                    })}\n                  </div>\n\n                  {/* Lifelines */}\n                  {!showAnswer && (\n                    <div className=\"flex justify-center gap-6 mt-8\">\n                      {question.lifelines?.map((lifeline, index) => (\n                        <div\n                          key={index}\n                          className={`px-6 py-3 rounded-full border-2 ${\n                            usedLifelines.includes(lifeline)\n                              ? 'bg-gray-700 border-gray-600 text-gray-500'\n                              : 'bg-orange-500 border-orange-400 text-white'\n                          } font-bold`}\n                        >\n                          {lifeline}\n                        </div>\n                      ))}\n                    </div>\n                  )}\n                </CardContent>\n              </Card>\n            </div>\n\n            {/* Money Ladder */}\n            <div className=\"col-span-3\">\n              <div className=\"space-y-2\">\n                {moneyLadder.map((item) => {\n                  const isCurrent = item.level === currentLevel;\n                  return (\n                    <div\n                      key={item.level}\n                      className={`p-3 rounded-lg border-2 transition-all duration-300 ${\n                        isCurrent\n                          ? 'bg-gradient-to-r from-orange-400 to-orange-500 border-orange-300 scale-110 shadow-xl'\n                          : 'bg-purple-800/50 border-purple-600'\n                      }`}\n                    >\n                      <div className=\"flex items-center justify-between\">\n                        <span className={`text-sm font-bold ${\n                          isCurrent ? 'text-purple-900' : 'text-purple-300'\n                        }`}>\n                          {item.level}\n                        </span>\n                        <span className={`text-xl font-black ${\n                          isCurrent ? 'text-purple-900' : 'text-orange-400'\n                        }`} style={{ fontFamily: branding.fonts.heading }}>\n                          {item.amount}\n                        </span>\n                        {isCurrent && <Diamond className=\"w-5 h-5 text-purple-900\" />}\n                      </div>\n                    </div>\n                  );\n                })}\n              </div>\n            </div>\n          </div>\n        </div>\n      </div>\n    );\n  }\n\n  // Family Feud-Style Display\n  if (format === 'family_feud') {\n    return (\n      <div className=\"min-h-screen bg-gradient-to-br from-red-800 via-orange-700 to-yellow-600 p-8\">\n        <div className=\"max-w-7xl mx-auto\">\n          {/* Header */}\n          <div className=\"flex items-center justify-between mb-8 bg-red-700/50 backdrop-blur-sm rounded-2xl p-6 border-4 border-yellow-400\">\n            <img \n              src={branding.venue.logo} \n              alt={branding.venue.name}\n              className=\"h-16 w-auto object-contain\"\n            />\n            <div className=\"text-center\">\n              <p className=\"text-yellow-300 text-4xl font-black\" style={{ fontFamily: branding.fonts.heading }}>\n                SURVEY SAYS!\n              </p>\n            </div>\n            <div className=\"flex items-center gap-6\">\n              {[...Array(3 - strikes)].map((_, i) => (\n                <XIcon key={i} className=\"w-12 h-12 text-gray-400\" />\n              ))}\n              {[...Array(strikes)].map((_, i) => (\n                <XIcon key={`strike-${i}`} className=\"w-12 h-12 text-red-500 animate-pulse\" />\n              ))}\n            </div>\n          </div>\n\n          {/* Question */}\n          <div className=\"text-center mb-8\">\n            <h1 \n              className=\"text-6xl font-black text-yellow-300 mb-4\"\n              style={{ fontFamily: branding.fonts.heading }}\n            >\n              {question.question}\n            </h1>\n          </div>\n\n          {/* Answer Board */}\n          <div className=\"grid grid-cols-1 gap-4 max-w-4xl mx-auto\">\n            {question.answers?.map((answer, index) => {\n              const isRevealed = showAnswer || revealedAnswers.includes(index);\n              \n              return (\n                <Card\n                  key={index}\n                  className={`transform transition-all duration-500 ${\n                    isRevealed ? 'scale-100 opacity-100' : 'scale-95 opacity-0'\n                  }`}\n                  style={{\n                    background: isRevealed \n                      ? 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)'\n                      : '#991b1b',\n                    transitionDelay: `${index * 200}ms`\n                  }}\n                >\n                  <CardContent className=\"p-6\">\n                    <div className=\"flex items-center justify-between\">\n                      <div className=\"flex items-center gap-4\">\n                        <div className=\"w-16 h-16 rounded-full bg-yellow-400 flex items-center justify-center\">\n                          <span className=\"text-3xl font-black text-red-900\">\n                            {index + 1}\n                          </span>\n                        </div>\n                        <p className=\"text-4xl font-bold text-yellow-300\" style={{ fontFamily: branding.fonts.heading }}>\n                          {isRevealed ? answer.text.toUpperCase() : '???'}\n                        </p>\n                      </div>\n                      {isRevealed && (\n                        <div className=\"flex items-center gap-3\">\n                          <span className=\"text-5xl font-black text-yellow-300\">\n                            {answer.points}\n                          </span>\n                          <CheckCircle2 className=\"w-12 h-12 text-green-400\" />\n                        </div>\n                      )}\n                    </div>\n                  </CardContent>\n                </Card>\n              );\n            })}\n          </div>\n        </div>\n      </div>\n    );\n  }\n\n  // Default fallback\n  return (\n    <div className={`min-h-screen bg-gradient-to-br ${theme.bgColor} p-8`}>\n      <div className=\"max-w-7xl mx-auto text-center text-white\">\n        <p className=\"text-4xl\">Format: {format}</p>\n        <p className=\"text-2xl mt-4\">{question?.question}</p>\n      </div>\n    </div>\n  );\n};\n\nexport default TVDisplay;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-8 flex items-center justify-center">
+        <div className="text-center space-y-12 max-w-4xl w-full">
+          <div className="animate-pulse">
+            <h1 className="text-8xl font-black text-white mb-4">TRIVIA SHOWDOWN</h1>
+            <p className="text-3xl text-white/90">Get Ready to Play!</p>
+          </div>
+          
+          <Card className="bg-white/10 backdrop-blur-lg border-0 text-white">
+            <CardContent className="p-12">
+              <p className="text-2xl mb-4">Join the game with code:</p>
+              <p className="text-8xl font-black font-mono tracking-wider mb-8">{gameCode || 'QUIZ42'}</p>
+              <div className="flex items-center justify-center gap-4 text-3xl">
+                <Users className="w-12 h-12" />
+                <span className="font-bold">{playerCount} Players Connected</span>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <div className="flex justify-center gap-4">
+            <div className="w-6 h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-6 h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
+            <div className="w-6 h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></div>
+          </div>
+          
+          <p className="text-2xl text-white/80">Game starting soon...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'final') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-500 via-orange-500 to-red-500 p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12 animate-pulse">
+            <Trophy className="w-32 h-32 mx-auto text-white mb-6" />
+            <h1 className="text-8xl font-black text-white mb-4">FINAL STANDINGS</h1>
+          </div>
+          
+          <div className="space-y-4">
+            {leaderboard.slice(0, 5).map((player, index) => (
+              <Card 
+                key={player.rank}
+                className={`transform transition-all duration-500 ${
+                  index === 0 ? 'scale-110 bg-gradient-to-r from-yellow-400 to-orange-400' : 'bg-white'
+                }`}
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <CardContent className="p-8">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-6">
+                      <div className={`text-6xl font-black ${
+                        index === 0 ? 'text-white' : 'text-indigo-600'
+                      }`}>
+                        #{player.rank}
+                      </div>
+                      {index === 0 && <Trophy className="w-12 h-12 text-white" />}
+                      <div>
+                        <p className={`text-4xl font-bold ${
+                          index === 0 ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {player.name}
+                        </p>
+                        <p className={`text-xl ${
+                          index === 0 ? 'text-white/80' : 'text-gray-500'
+                        }`}>
+                          {player.correctAnswers} correct answers
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`text-6xl font-black ${
+                      index === 0 ? 'text-white' : 'text-indigo-600'
+                    }`}>
+                      {player.score}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'leaderboard') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-600 to-red-600 p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-7xl font-black text-white mb-4">LEADERBOARD</h1>
+            <p className="text-3xl text-white/90">After Question {currentQuestion + 1}</p>
+          </div>
+          
+          <div className="grid gap-4">
+            {leaderboard.slice(0, 8).map((player, index) => (
+              <Card 
+                key={player.rank}
+                className="transform transition-all duration-300 hover:scale-105 bg-white/95"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="text-4xl font-black text-indigo-600 w-16">
+                        #{player.rank}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {player.trend === 'up' && <TrendingUp className="w-6 h-6 text-green-500" />}
+                        {player.trend === 'down' && <TrendingUp className="w-6 h-6 text-red-500 transform rotate-180" />}
+                        <div>
+                          <p className="text-2xl font-bold text-gray-900">{player.name}</p>
+                          <p className="text-lg text-gray-500">{player.correctAnswers} correct</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-4xl font-black text-indigo-600">
+                      {player.score}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const progressPercentage = (timeLeft / question.timeLimit) * 100;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 p-8">
+      {/* Header */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <div className="flex items-center justify-between bg-white/10 backdrop-blur-sm rounded-2xl p-6">
+          <div className="flex items-center gap-4">
+            <Users className="w-8 h-8 text-white" />
+            <span className="text-3xl font-bold text-white">{playerCount} Players</span>
+          </div>
+          <div className="text-center">
+            <p className="text-white/80 text-xl">Question</p>
+            <p className="text-4xl font-black text-white">{currentQuestion + 1}/{mockQuestions.length}</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Clock className="w-8 h-8 text-white" />
+            <span className="text-3xl font-bold text-white">{timeLeft}s</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto">
+        <Card className="bg-white border-0 shadow-2xl">
+          <CardContent className="p-12 space-y-8">
+            {/* Progress Bar */}
+            <Progress 
+              value={progressPercentage} 
+              className="h-4"
+            />
+
+            {/* Question Type */}
+            <div className="flex justify-center">
+              <span className="px-6 py-2 bg-indigo-100 text-indigo-700 rounded-full text-2xl font-bold capitalize">
+                {question.type.replace('_', ' ')}
+              </span>
+            </div>
+
+            {/* Question */}
+            <h1 className="text-6xl font-black text-center text-gray-900 min-h-[200px] flex items-center justify-center">
+              {question.question}
+            </h1>
+
+            {/* Options */}
+            {question.type === 'multiple_choice' && (
+              <div className="grid grid-cols-2 gap-6">
+                {question.options.map((option, index) => {
+                  const isCorrect = index === question.correctAnswer;
+                  const showCorrect = showAnswer && isCorrect;
+                  
+                  return (
+                    <div
+                      key={index}
+                      className={`p-8 rounded-2xl border-4 transition-all duration-500 transform ${
+                        showCorrect
+                          ? 'bg-green-500 border-green-600 scale-105 text-white'
+                          : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black ${
+                          showCorrect ? 'bg-white text-green-500' : 'bg-indigo-600 text-white'
+                        }`}>
+                          {String.fromCharCode(65 + index)}
+                        </div>
+                        <p className={`text-3xl font-bold ${
+                          showCorrect ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {option}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {question.type === 'true_false' && (
+              <div className="grid grid-cols-2 gap-8">
+                <div className={`p-12 rounded-2xl border-4 transition-all duration-500 ${
+                  showAnswer && question.correctAnswer === true
+                    ? 'bg-green-500 border-green-600 text-white'
+                    : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <p className={`text-5xl font-black text-center ${
+                    showAnswer && question.correctAnswer === true ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    TRUE
+                  </p>
+                </div>
+                <div className={`p-12 rounded-2xl border-4 transition-all duration-500 ${
+                  showAnswer && question.correctAnswer === false
+                    ? 'bg-green-500 border-green-600 text-white'
+                    : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <p className={`text-5xl font-black text-center ${
+                    showAnswer && question.correctAnswer === false ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    FALSE
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {question.type === 'fastest_finger' && (
+              <div className="text-center space-y-8">
+                <div className="bg-gradient-to-r from-red-500 to-orange-500 p-16 rounded-3xl">
+                  <Zap className="w-32 h-32 mx-auto text-white mb-4" />
+                  <p className="text-5xl font-black text-white">BUZZ IN NOW!</p>
+                </div>
+                {showAnswer && (
+                  <div className="bg-green-500 p-8 rounded-2xl">
+                    <p className="text-4xl font-bold text-white">Answer: {question.correctAnswer}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {question.type === 'survey' && (
+              <div className="space-y-4">
+                {question.answers.map((answer, index) => (
+                  <div
+                    key={index}
+                    className="bg-gray-50 p-6 rounded-xl border-2 border-gray-200 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xl font-black">
+                        {index + 1}
+                      </div>
+                      <p className="text-3xl font-bold text-gray-900">{answer.text}</p>
+                    </div>
+                    {showAnswer && (
+                      <div className="text-3xl font-black text-indigo-600">
+                        {answer.points} pts
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default TVDisplay;
