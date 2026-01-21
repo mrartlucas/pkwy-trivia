@@ -4,6 +4,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
 import { Trophy, Users, Clock, Zap, TrendingUp } from 'lucide-react';
 import { mockQuestions, mockLeaderboard } from '../mockData';
+import { getBranding } from '../config/branding';
 
 const TVDisplay = () => {
   const { gameCode } = useParams();
