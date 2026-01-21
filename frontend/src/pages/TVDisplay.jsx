@@ -8,6 +8,7 @@ import { getBranding } from '../config/branding';
 
 const TVDisplay = () => {
   const { gameCode } = useParams();
+  const branding = getBranding();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [gameState, setGameState] = useState('lobby'); // lobby, question, leaderboard, final
   const [timeLeft, setTimeLeft] = useState(30);
