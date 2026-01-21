@@ -376,6 +376,52 @@ const DirectorPanel = () => {
         currentQuestion = allQuizQuestions[currentIndex];
         totalQuestions = allQuizQuestions.length;
         break;
+      
+      case 'GAME NIGHT MIX':
+        // Flatten all questions from all rounds
+        const allRoundQuestions = [];
+        const rounds = content.rounds || [];
+        for (const round of rounds) {
+          const roundFormat = round.format;
+          let roundQuestions = [];
+          
+          if (roundFormat === 'PERIL!') {
+            roundQuestions = (round.categories || []).flatMap(c => 
+              (c.clues || []).map(q => ({ ...q, round_name: round.round_name, format: roundFormat }))
+            );
+          } else if (roundFormat === 'SURVEY SAYS!') {
+            roundQuestions = (round.survey_questions || []).map(q => ({ 
+              question_text: q.question, 
+              answers: q.answers,
+              round_name: round.round_name, 
+              format: roundFormat 
+            }));
+          } else if (roundFormat === 'SPIN TO WIN!') {
+            roundQuestions = (round.puzzles || []).map(q => ({ 
+              question_text: q.category + ': ' + q.puzzle_with_blanks,
+              full_answer: q.full_answer,
+              round_name: round.round_name, 
+              format: roundFormat 
+            }));
+          } else if (roundFormat === 'CLOSEST WINS!') {
+            roundQuestions = (round.numbers || []).map(q => ({ 
+              ...q, 
+              round_name: round.round_name, 
+              format: roundFormat 
+            }));
+          } else {
+            roundQuestions = (round.questions || []).map(q => ({ 
+              ...q, 
+              round_name: round.round_name, 
+              format: roundFormat 
+            }));
+          }
+          
+          allRoundQuestions.push(...roundQuestions);
+        }
+        currentQuestion = allRoundQuestions[currentIndex];
+        totalQuestions = allRoundQuestions.length;
+        break;
         
       default:
         break;
