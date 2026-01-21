@@ -139,11 +139,12 @@ const HostDashboard = () => {
         </div>
 
         <Tabs defaultValue="games" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-3xl">
+          <TabsList className="grid w-full grid-cols-5 max-w-4xl">
             <TabsTrigger value="games">Games</TabsTrigger>
             <TabsTrigger value="questions">Question Bank</TabsTrigger>
             <TabsTrigger value="import">Import & Packs</TabsTrigger>
             <TabsTrigger value="media">Media Library</TabsTrigger>
+            <TabsTrigger value="docs">Documentation</TabsTrigger>
           </TabsList>
 
           {/* Games Tab */}
