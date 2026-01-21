@@ -1,6 +1,6 @@
 /**
  * TV Display - Main game screen for bars/venues
- * Supports all 13 game formats with real-time WebSocket updates
+ * Supports all 14 game formats (including GAME NIGHT MIX) with real-time WebSocket updates
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
@@ -24,6 +24,7 @@ import {
   BackToSchoolDisplay,
   QuizChaseDisplay,
   PKWYLiveDisplay,
+  GameNightMixDisplay,
 } from '../components/games';
 
 const TVDisplay = () => {
@@ -36,6 +37,7 @@ const TVDisplay = () => {
   const [error, setError] = useState(null);
   const [displayState, setDisplayState] = useState('lobby'); // lobby, question, leaderboard, final
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [ws, setWs] = useState(null);
