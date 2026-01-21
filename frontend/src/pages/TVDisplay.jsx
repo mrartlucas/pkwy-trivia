@@ -214,7 +214,7 @@ const TVDisplay = () => {
             {/* Question Type */}
             <div className="flex justify-center">
               <span className="px-6 py-2 bg-indigo-100 text-indigo-700 rounded-full text-2xl font-bold capitalize">
-                {question.type.replace('_', ' ')}
+                {question.format ? question.format.replace('_', ' ') : 'Question'}
               </span>
             </div>
 
