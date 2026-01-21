@@ -192,21 +192,30 @@ const TVDisplay = () => {
   const progressPercentage = (timeLeft / question.timeLimit) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 p-8">
-      {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 p-8">
+      {/* Header with PKWY Branding */}
       <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex items-center justify-between bg-white/10 backdrop-blur-sm rounded-2xl p-6">
+        <div className="flex items-center justify-between bg-blue-800/50 backdrop-blur-sm rounded-2xl p-6 border-4 border-yellow-400">
           <div className="flex items-center gap-4">
-            <Users className="w-8 h-8 text-white" />
-            <span className="text-3xl font-bold text-white">{playerCount} Players</span>
+            <img 
+              src={branding.venue.logo} 
+              alt={branding.venue.name}
+              className="h-16 w-auto object-contain"
+            />
           </div>
           <div className="text-center">
-            <p className="text-white/80 text-xl">Question</p>
+            <p className="text-yellow-400 text-xl font-bold">Question</p>
             <p className="text-4xl font-black text-white">{currentQuestion + 1}/{mockQuestions.length}</p>
           </div>
-          <div className="flex items-center gap-4">
-            <Clock className="w-8 h-8 text-white" />
-            <span className="text-3xl font-bold text-white">{timeLeft}s</span>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <Users className="w-8 h-8 text-yellow-400" />
+              <span className="text-3xl font-bold text-white">{playerCount}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Clock className="w-8 h-8 text-yellow-400" />
+              <span className="text-3xl font-bold text-white">{timeLeft}s</span>
+            </div>
           </div>
         </div>
       </div>
