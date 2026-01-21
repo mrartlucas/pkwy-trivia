@@ -10,11 +10,14 @@ import { Badge } from '../components/ui/badge';
 import { 
   Play, Pause, SkipForward, SkipBack, Trophy, Users, 
   Eye, EyeOff, Home, Tv, CheckCircle2, Clock, Loader2,
-  RefreshCw, StopCircle, BarChart3, Wifi, WifiOff
+  RefreshCw, StopCircle, BarChart3, Wifi, WifiOff, Bot, 
+  Smartphone, Copy, QrCode, Trash2
 } from 'lucide-react';
 import { getBranding } from '../config/branding';
 import { toast } from '../hooks/use-toast';
 import { gamesApi, createWebSocket } from '../services/api';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const DirectorPanel = () => {
   const { gameCode } = useParams();
