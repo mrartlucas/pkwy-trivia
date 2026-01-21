@@ -3,7 +3,7 @@
  * Uses real API to join games
  */
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
@@ -14,6 +14,7 @@ import { gamesApi } from '../services/api';
 
 const PlayerJoin = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [playerName, setPlayerName] = useState('');
   const [gameCode, setGameCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,12 @@ const PlayerJoin = () => {
 
   useEffect(() => {
     setBranding(getBranding());
-  }, []);
+    // Check for code in URL params
+    const codeFromUrl = searchParams.get('code');
+    if (codeFromUrl) {
+      setGameCode(codeFromUrl.toUpperCase());
+    }
+  }, [searchParams]);
 
   const handleJoinGame = async (e) => {
     e.preventDefault();
