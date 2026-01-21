@@ -12,6 +12,7 @@ import { Play, Plus, Tv, Users, Edit, Trash2, Settings } from 'lucide-react';
 import { mockGames, mockQuestions } from '../mockData';
 import { toast } from '../hooks/use-toast';
 import QuestionImport from '../components/QuestionImport';
+import MediaLibrary from '../components/MediaLibrary';
 
 const HostDashboard = () => {
   const navigate = useNavigate();
