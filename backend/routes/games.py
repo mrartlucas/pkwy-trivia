@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from models.game_models import (
     GameSession, GameSessionCreate, GameSessionResponse,
     Player, PlayerCreate, PlayerResponse,
-    LeaderboardEntry, GameStatus
+    LeaderboardEntry, GameStatus, generate_id
 )
 
 router = APIRouter(prefix="/games", tags=["games"])
@@ -23,11 +23,20 @@ def set_db(database):
 
 
 @router.post("", response_model=GameSessionResponse, status_code=status.HTTP_201_CREATED)
-async def create_game(game_data: GameSessionCreate):
-    """Create a new game session"""
+async def create_game(game_data: GameSessionCreate, custom_code: Optional[str] = None):
+    """Create a new game session with optional custom code"""
     game = GameSession(**game_data.model_dump())
-    game_dict = game.model_dump()
     
+    # Allow custom code (e.g., "DEMO")
+    if custom_code:
+        # Check if code already exists
+        existing = await db.games.find_one({"code": custom_code.upper()})
+        if existing:
+            # Delete existing game with this code
+            await db.games.delete_one({"code": custom_code.upper()})
+        game.code = custom_code.upper()
+    
+    game_dict = game.model_dump()
     await db.games.insert_one(game_dict)
     
     return GameSessionResponse(
