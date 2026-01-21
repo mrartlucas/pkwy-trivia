@@ -33,6 +33,7 @@ class GameFormat(str, Enum):
     BACK_TO_SCHOOL = "BACK TO SCHOOL!"
     QUIZ_CHASE = "QUIZ CHASE"
     PKWY_LIVE = "PKWY LIVE!"
+    GAME_NIGHT_MIX = "GAME NIGHT MIX"
 
 
 class GameStatus(str, Enum):
