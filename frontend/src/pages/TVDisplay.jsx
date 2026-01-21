@@ -251,7 +251,7 @@ const TVDisplay = () => {
             </h1>
 
             {/* Options */}
-            {question.type === 'multiple_choice' && (
+            {(question.format === 'jeopardy' || question.format === 'millionaire' || question.type === 'multiple_choice') && question.options && (
               <div className="grid grid-cols-2 gap-6">
                 {question.options.map((option, index) => {
                   const isCorrect = index === question.correctAnswer;
@@ -260,20 +260,20 @@ const TVDisplay = () => {
                   return (
                     <div
                       key={index}
-                      className={`p-8 rounded-2xl border-4 transition-all duration-500 transform ${
+                      className={`p-8 rounded-xl border-4 transition-all duration-500 transform ${
                         showCorrect
-                          ? 'bg-green-500 border-green-600 scale-105 text-white'
-                          : 'bg-gray-50 border-gray-200'
+                          ? 'bg-green-500 border-green-400 scale-105'
+                          : 'bg-blue-700 border-yellow-400'
                       }`}
                     >
                       <div className="flex items-center gap-4">
                         <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black ${
-                          showCorrect ? 'bg-white text-green-500' : 'bg-indigo-600 text-white'
+                          showCorrect ? 'bg-white text-green-500' : 'bg-yellow-400 text-blue-900'
                         }`}>
                           {String.fromCharCode(65 + index)}
                         </div>
                         <p className={`text-3xl font-bold ${
-                          showCorrect ? 'text-white' : 'text-gray-900'
+                          showCorrect ? 'text-white' : 'text-yellow-400'
                         }`}>
                           {option}
                         </p>
