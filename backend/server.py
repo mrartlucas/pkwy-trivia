@@ -1,16 +1,17 @@
-from fastapi import FastAPI, APIRouter
+"""
+PKWY Tavern Game Suite - Backend Server
+Supports 13 game formats with real-time WebSocket communication
+"""
+from fastapi import FastAPI, APIRouter, WebSocket, WebSocketDisconnect
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List
-import uuid
-from datetime import datetime, timezone
+import json
 
-
+# Load environment
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -19,56 +20,109 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
-app = FastAPI()
+# Create the main app
+app = FastAPI(
+    title="PKWY Tavern Game Suite API",
+    description="Backend API for multi-format trivia game system",
+    version="1.0.0"
+)
 
-# Create a router with the /api prefix
+# Create API router
 api_router = APIRouter(prefix="/api")
 
+# Import routes
+from routes import games, game_packs, answers
+from services.websocket_manager import (
+    manager, 
+    handle_director_message, 
+    handle_player_message
+)
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+# Set database for routes
+games.set_db(db)
+game_packs.set_db(db)
+answers.set_db(db)
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+# Include route modules
+api_router.include_router(games.router)
+api_router.include_router(game_packs.router)
+api_router.include_router(answers.router)
 
-# Add your routes to the router instead of directly to app
+
+# Health check endpoint
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "PKWY Tavern Game Suite API", "status": "running"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy", "database": "connected"}
 
-# Include the router in the main app
+
+# Include API router
 app.include_router(api_router)
 
+
+# WebSocket endpoints
+@app.websocket("/ws/director/{game_code}")
+async def websocket_director(websocket: WebSocket, game_code: str):
+    """WebSocket endpoint for Director Panel"""
+    await manager.connect_director(websocket, game_code.upper())
+    try:
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            await handle_director_message(game_code.upper(), message, db)
+    except WebSocketDisconnect:
+        manager.disconnect_director(websocket, game_code.upper())
+    except Exception as e:
+        logging.error(f"Director WebSocket error: {e}")
+        manager.disconnect_director(websocket, game_code.upper())
+
+
+@app.websocket("/ws/tv/{game_code}")
+async def websocket_tv(websocket: WebSocket, game_code: str):
+    """WebSocket endpoint for TV Display"""
+    await manager.connect_tv(websocket, game_code.upper())
+    try:
+        while True:
+            # TV displays mostly receive, but can send heartbeats
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            if message.get("event") == "heartbeat":
+                await websocket.send_text(json.dumps({"event": "heartbeat", "data": "pong"}))
+    except WebSocketDisconnect:
+        manager.disconnect_tv(websocket, game_code.upper())
+    except Exception as e:
+        logging.error(f"TV WebSocket error: {e}")
+        manager.disconnect_tv(websocket, game_code.upper())
+
+
+@app.websocket("/ws/player/{game_code}/{player_id}")
+async def websocket_player(websocket: WebSocket, game_code: str, player_id: str):
+    """WebSocket endpoint for Players"""
+    await manager.connect_player(websocket, game_code.upper(), player_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            await handle_player_message(game_code.upper(), player_id, message, db)
+    except WebSocketDisconnect:
+        manager.disconnect_player(game_code.upper(), player_id)
+        
+        # Notify others of player disconnect
+        await manager.broadcast_to_game(game_code.upper(), {
+            "event": "player:disconnected",
+            "data": {"player_id": player_id}
+        })
+    except Exception as e:
+        logging.error(f"Player WebSocket error: {e}")
+        manager.disconnect_player(game_code.upper(), player_id)
+
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -83,6 +137,18 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def startup_db():
+    """Initialize database indexes"""
+    # Create indexes for better query performance
+    await db.games.create_index("code", unique=True)
+    await db.games.create_index("status")
+    await db.game_packs.create_index("game_format")
+    await db.game_packs.create_index("tags")
+    logger.info("Database indexes created")
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
