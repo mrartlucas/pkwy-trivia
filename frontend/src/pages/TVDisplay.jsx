@@ -1,56 +1,204 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * TV Display - Main game screen for bars/venues
+ * Supports all 13 game formats with real-time WebSocket updates
+ */
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '../components/ui/card';
-import { Progress } from '../components/ui/progress';
-import { Trophy, Users, Clock, Zap, TrendingUp } from 'lucide-react';
-import { mockQuestions, mockLeaderboard } from '../mockData';
+import { Trophy, Users, Loader2 } from 'lucide-react';
 import { getBranding } from '../config/branding';
+import { gamesApi, createWebSocket } from '../services/api';
+
+// Import all game displays
+import {
+  PerilDisplay,
+  SurveySaysDisplay,
+  UrFinalAnswerDisplay,
+  LastCallStandingDisplay,
+  PickOrPassDisplay,
+  LinkReactionDisplay,
+  SpinToWinDisplay,
+  ClosestWinsDisplay,
+  ChainedUpDisplay,
+  NoWhammyDisplay,
+  BackToSchoolDisplay,
+  QuizChaseDisplay,
+  PKWYLiveDisplay,
+} from '../components/games';
 
 const TVDisplay = () => {
   const { gameCode } = useParams();
   const branding = getBranding();
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [gameState, setGameState] = useState('lobby'); // lobby, question, leaderboard, final
-  const [timeLeft, setTimeLeft] = useState(30);
+  
+  // Game state
+  const [game, setGame] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [displayState, setDisplayState] = useState('lobby'); // lobby, question, leaderboard, final
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [leaderboard, setLeaderboard] = useState(mockLeaderboard);
-  const [playerCount, setPlayerCount] = useState(8);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [ws, setWs] = useState(null);
+  
+  // Game-specific state
+  const [gameSpecificState, setGameSpecificState] = useState({});
 
-  const question = mockQuestions[currentQuestion];
-
-  useEffect(() => {
-    // Simulate game flow
-    const timer = setTimeout(() => {
-      if (gameState === 'lobby') {
-        setGameState('question');
+  // Fetch game data
+  const fetchGame = useCallback(async () => {
+    try {
+      setLoading(true);
+      const gameData = await gamesApi.getByCode(gameCode);
+      setGame(gameData);
+      setCurrentIndex(gameData.current_question_index || 0);
+      
+      if (gameData.status === 'finished') {
+        setDisplayState('final');
+      } else if (gameData.status === 'active') {
+        setDisplayState('question');
       }
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, []);
+      
+      // Fetch leaderboard
+      const lb = await gamesApi.getLeaderboard(gameCode);
+      setLeaderboard(lb);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [gameCode]);
 
+  // WebSocket connection
   useEffect(() => {
-    if (gameState === 'question' && timeLeft > 0 && !showAnswer) {
-      const timer = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    } else if (timeLeft === 0 && !showAnswer) {
-      setShowAnswer(true);
+    if (!gameCode) return;
+
+    const socket = createWebSocket.tv(gameCode);
+    
+    socket.onopen = () => {
+      console.log('TV WebSocket connected');
+    };
+
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      handleWebSocketMessage(message);
+    };
+
+    socket.onerror = (err) => {
+      console.error('WebSocket error:', err);
+    };
+
+    socket.onclose = () => {
+      console.log('WebSocket disconnected');
+      // Attempt reconnect after 3 seconds
       setTimeout(() => {
-        if (currentQuestion < mockQuestions.length - 1) {
-          setCurrentQuestion(prev => prev + 1);
-          setShowAnswer(false);
-          setTimeLeft(mockQuestions[currentQuestion + 1].timeLimit);
-          setGameState('leaderboard');
-          setTimeout(() => setGameState('question'), 5000);
-        } else {
-          setGameState('final');
+        if (ws?.readyState === WebSocket.CLOSED) {
+          setWs(createWebSocket.tv(gameCode));
         }
       }, 3000);
-    }
-  }, [gameState, timeLeft, showAnswer, currentQuestion]);
+    };
 
-  if (gameState === 'lobby') {
+    setWs(socket);
+
+    return () => {
+      socket.close();
+    };
+  }, [gameCode]);
+
+  // Handle WebSocket messages
+  const handleWebSocketMessage = (message) => {
+    const { event, data } = message;
+
+    switch (event) {
+      case 'game:started':
+        setDisplayState('question');
+        fetchGame();
+        break;
+        
+      case 'game:paused':
+        // Could show a pause screen
+        break;
+        
+      case 'game:resumed':
+        setDisplayState('question');
+        break;
+        
+      case 'game:finished':
+        setDisplayState('final');
+        setLeaderboard(data.final_leaderboard || []);
+        break;
+        
+      case 'question:changed':
+        setCurrentIndex(data.question_index);
+        setShowAnswer(false);
+        setDisplayState('question');
+        break;
+        
+      case 'answer:revealed':
+        setShowAnswer(true);
+        break;
+        
+      case 'leaderboard:update':
+        setLeaderboard(data);
+        setDisplayState('leaderboard');
+        break;
+        
+      case 'display:state':
+        setDisplayState(data.state);
+        break;
+        
+      case 'player:joined':
+        fetchGame(); // Refresh to get updated player count
+        break;
+        
+      case 'survey:answer_revealed':
+        setGameSpecificState(prev => ({
+          ...prev,
+          revealedAnswers: [...(prev.revealedAnswers || []), data.answerIndex]
+        }));
+        break;
+        
+      case 'survey:strike':
+        setGameSpecificState(prev => ({
+          ...prev,
+          strikes: (prev.strikes || 0) + 1
+        }));
+        break;
+        
+      default:
+        console.log('Unknown WebSocket event:', event);
+    }
+  };
+
+  // Initial fetch
+  useEffect(() => {
+    fetchGame();
+  }, [fetchGame]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 flex items-center justify-center">
+        <Loader2 className="w-16 h-16 text-yellow-400 animate-spin" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-900 via-red-800 to-red-900 flex items-center justify-center">
+        <Card className="bg-white/10 backdrop-blur-lg border-4 border-red-400 max-w-lg">
+          <CardContent className="p-12 text-center">
+            <h1 className="text-4xl font-bold text-white mb-4">Game Not Found</h1>
+            <p className="text-xl text-red-200">{error}</p>
+            <p className="text-lg text-red-300 mt-4">Code: {gameCode}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Lobby state
+  if (displayState === 'lobby' || !game?.content) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 p-8 flex items-center justify-center">
         <div className="text-center space-y-12 max-w-4xl w-full">
@@ -64,16 +212,20 @@ const TVDisplay = () => {
               {branding.venue.name.toUpperCase()}
             </h1>
             <p className="text-4xl text-white/90 mb-2">{branding.venue.tagline}</p>
-            <p className="text-5xl font-bold text-yellow-400 mt-6">TRIVIA NIGHT</p>
+            {game?.game_format && (
+              <p className="text-5xl font-bold text-yellow-400 mt-6">{game.game_format}</p>
+            )}
           </div>
           
           <Card className="bg-white/10 backdrop-blur-lg border-4 border-yellow-400">
             <CardContent className="p-12">
               <p className="text-3xl text-white/90 mb-4">Join the game with code:</p>
-              <p className="text-9xl font-black font-mono tracking-wider mb-8 text-yellow-400">{gameCode || 'TRIVIA'}</p>
+              <p className="text-9xl font-black font-mono tracking-wider mb-8 text-yellow-400">
+                {gameCode || 'TRIVIA'}
+              </p>
               <div className="flex items-center justify-center gap-4 text-4xl text-white">
                 <Users className="w-14 h-14" />
-                <span className="font-bold">{playerCount} Players Connected</span>
+                <span className="font-bold">{game?.players?.length || 0} Players Connected</span>
               </div>
             </CardContent>
           </Card>
@@ -84,13 +236,16 @@ const TVDisplay = () => {
             <div className="w-6 h-6 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></div>
           </div>
           
-          <p className="text-3xl text-white/90">Get ready to play!</p>
+          <p className="text-3xl text-white/90">
+            {game?.content ? 'Game ready! Waiting for host to start...' : 'Waiting for game content...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  if (gameState === 'final') {
+  // Final standings
+  if (displayState === 'final') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-yellow-500 via-orange-500 to-red-500 p-8">
         <div className="max-w-7xl mx-auto">
@@ -102,11 +257,10 @@ const TVDisplay = () => {
           <div className="space-y-4">
             {leaderboard.slice(0, 5).map((player, index) => (
               <Card 
-                key={player.rank}
+                key={player.player_id || index}
                 className={`transform transition-all duration-500 ${
                   index === 0 ? 'scale-110 bg-gradient-to-r from-yellow-400 to-orange-400' : 'bg-white'
                 }`}
-                style={{ animationDelay: `${index * 100}ms` }}
               >
                 <CardContent className="p-8">
                   <div className="flex items-center justify-between">
@@ -126,14 +280,14 @@ const TVDisplay = () => {
                         <p className={`text-xl ${
                           index === 0 ? 'text-white/80' : 'text-gray-500'
                         }`}>
-                          {player.correctAnswers} correct answers
+                          {player.correct_answers} correct answers
                         </p>
                       </div>
                     </div>
                     <div className={`text-6xl font-black ${
                       index === 0 ? 'text-white' : 'text-indigo-600'
                     }`}>
-                      {player.score}
+                      {player.score?.toLocaleString()}
                     </div>
                   </div>
                 </CardContent>
@@ -145,21 +299,21 @@ const TVDisplay = () => {
     );
   }
 
-  if (gameState === 'leaderboard') {
+  // Leaderboard state
+  if (displayState === 'leaderboard') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-600 to-red-600 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-8">
             <h1 className="text-7xl font-black text-white mb-4">LEADERBOARD</h1>
-            <p className="text-3xl text-white/90">After Question {currentQuestion + 1}</p>
+            <p className="text-3xl text-white/90">After Question {currentIndex + 1}</p>
           </div>
           
           <div className="grid gap-4">
             {leaderboard.slice(0, 8).map((player, index) => (
               <Card 
-                key={player.rank}
+                key={player.player_id || index}
                 className="transform transition-all duration-300 hover:scale-105 bg-white/95"
-                style={{ animationDelay: `${index * 50}ms` }}
               >
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -167,17 +321,13 @@ const TVDisplay = () => {
                       <div className="text-4xl font-black text-indigo-600 w-16">
                         #{player.rank}
                       </div>
-                      <div className="flex items-center gap-3">
-                        {player.trend === 'up' && <TrendingUp className="w-6 h-6 text-green-500" />}
-                        {player.trend === 'down' && <TrendingUp className="w-6 h-6 text-red-500 transform rotate-180" />}
-                        <div>
-                          <p className="text-2xl font-bold text-gray-900">{player.name}</p>
-                          <p className="text-lg text-gray-500">{player.correctAnswers} correct</p>
-                        </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-900">{player.name}</p>
+                        <p className="text-lg text-gray-500">{player.correct_answers} correct</p>
                       </div>
                     </div>
                     <div className="text-4xl font-black text-indigo-600">
-                      {player.score}
+                      {player.score?.toLocaleString()}
                     </div>
                   </div>
                 </CardContent>
@@ -189,169 +339,72 @@ const TVDisplay = () => {
     );
   }
 
-  const progressPercentage = (timeLeft / question.timeLimit) * 100;
+  // Game-specific displays
+  const content = game?.content;
+  const format = game?.game_format;
+  const players = game?.players || [];
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 p-8">
-      {/* Header with PKWY Branding */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex items-center justify-between bg-blue-800/50 backdrop-blur-sm rounded-2xl p-6 border-4 border-yellow-400">
-          <div className="flex items-center gap-4">
-            <img 
-              src={branding.venue.logo} 
-              alt={branding.venue.name}
-              className="h-16 w-auto object-contain"
-            />
-          </div>
-          <div className="text-center">
-            <p className="text-yellow-400 text-xl font-bold">Question</p>
-            <p className="text-4xl font-black text-white">{currentQuestion + 1}/{mockQuestions.length}</p>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <Users className="w-8 h-8 text-yellow-400" />
-              <span className="text-3xl font-bold text-white">{playerCount}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Clock className="w-8 h-8 text-yellow-400" />
-              <span className="text-3xl font-bold text-white">{timeLeft}s</span>
-            </div>
-          </div>
+  const commonProps = {
+    content,
+    currentIndex,
+    showAnswer,
+    players,
+    ...gameSpecificState,
+  };
+
+  switch (format) {
+    case 'PERIL!':
+      return <PerilDisplay {...commonProps} />;
+      
+    case 'SURVEY SAYS!':
+      return <SurveySaysDisplay {...commonProps} />;
+      
+    case 'UR FINAL ANSWER!':
+      return <UrFinalAnswerDisplay {...commonProps} />;
+      
+    case 'LAST CALL STANDING':
+      return <LastCallStandingDisplay {...commonProps} />;
+      
+    case 'PICK OR PASS!':
+      return <PickOrPassDisplay {...commonProps} />;
+      
+    case 'LINK REACTION':
+      return <LinkReactionDisplay {...commonProps} />;
+      
+    case 'SPIN TO WIN!':
+      return <SpinToWinDisplay {...commonProps} />;
+      
+    case 'CLOSEST WINS!':
+      return <ClosestWinsDisplay {...commonProps} />;
+      
+    case 'CHAINED UP':
+      return <ChainedUpDisplay {...commonProps} />;
+      
+    case 'NO WHAMMY!':
+      return <NoWhammyDisplay {...commonProps} />;
+      
+    case 'BACK TO SCHOOL!':
+      return <BackToSchoolDisplay {...commonProps} />;
+      
+    case 'QUIZ CHASE':
+      return <QuizChaseDisplay {...commonProps} />;
+      
+    case 'PKWY LIVE!':
+      return <PKWYLiveDisplay {...commonProps} playerCount={players.length} />;
+      
+    default:
+      // Fallback to lobby if format unknown
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+          <Card className="bg-white/10 backdrop-blur-lg border-4 border-yellow-400 max-w-lg">
+            <CardContent className="p-12 text-center">
+              <h1 className="text-4xl font-bold text-white mb-4">Unknown Game Format</h1>
+              <p className="text-xl text-gray-300">{format || 'No format specified'}</p>
+            </CardContent>
+          </Card>
         </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto">
-        <Card className="bg-blue-900 border-8 border-yellow-400 shadow-2xl">
-          <CardContent className="p-12 space-y-8">
-            {/* Progress Bar */}
-            <div className="space-y-2">
-              <Progress 
-                value={progressPercentage} 
-                className="h-4"
-              />
-            </div>
-
-            {/* Question Type Badge */}
-            <div className="flex justify-center">
-              <span 
-                className="px-6 py-2 rounded-full text-2xl font-bold capitalize"
-                style={{
-                  backgroundColor: branding.colors.primary,
-                  color: branding.colors.accent
-                }}
-              >
-                {question.format ? question.format.replace('_', ' ') : 'Question'}
-              </span>
-            </div>
-
-            {/* Question */}
-            <h1 className="text-6xl font-bold text-center text-yellow-400 min-h-[200px] flex items-center justify-center">
-              {question.question}
-            </h1>
-
-            {/* Options */}
-            {(question.format === 'jeopardy' || question.format === 'millionaire' || question.type === 'multiple_choice') && question.options && (
-              <div className="grid grid-cols-2 gap-6">
-                {question.options.map((option, index) => {
-                  const isCorrect = index === question.correctAnswer;
-                  const showCorrect = showAnswer && isCorrect;
-                  
-                  return (
-                    <div
-                      key={index}
-                      className={`p-8 rounded-xl border-4 transition-all duration-500 transform ${
-                        showCorrect
-                          ? 'bg-green-500 border-green-400 scale-105'
-                          : 'bg-blue-700 border-yellow-400'
-                      }`}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black ${
-                          showCorrect ? 'bg-white text-green-500' : 'bg-yellow-400 text-blue-900'
-                        }`}>
-                          {String.fromCharCode(65 + index)}
-                        </div>
-                        <p className={`text-3xl font-bold ${
-                          showCorrect ? 'text-white' : 'text-yellow-400'
-                        }`}>
-                          {option}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {question.type === 'true_false' && (
-              <div className="grid grid-cols-2 gap-8">
-                <div className={`p-12 rounded-2xl border-4 transition-all duration-500 ${
-                  showAnswer && question.correctAnswer === true
-                    ? 'bg-green-500 border-green-600 text-white'
-                    : 'bg-gray-50 border-gray-200'
-                }`}>
-                  <p className={`text-5xl font-black text-center ${
-                    showAnswer && question.correctAnswer === true ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    TRUE
-                  </p>
-                </div>
-                <div className={`p-12 rounded-2xl border-4 transition-all duration-500 ${
-                  showAnswer && question.correctAnswer === false
-                    ? 'bg-green-500 border-green-600 text-white'
-                    : 'bg-gray-50 border-gray-200'
-                }`}>
-                  <p className={`text-5xl font-black text-center ${
-                    showAnswer && question.correctAnswer === false ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    FALSE
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {question.type === 'fastest_finger' && (
-              <div className="text-center space-y-8">
-                <div className="bg-gradient-to-r from-red-500 to-orange-500 p-16 rounded-3xl">
-                  <Zap className="w-32 h-32 mx-auto text-white mb-4" />
-                  <p className="text-5xl font-black text-white">BUZZ IN NOW!</p>
-                </div>
-                {showAnswer && (
-                  <div className="bg-green-500 p-8 rounded-2xl">
-                    <p className="text-4xl font-bold text-white">Answer: {question.correctAnswer}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {question.type === 'survey' && (
-              <div className="space-y-4">
-                {question.answers.map((answer, index) => (
-                  <div
-                    key={index}
-                    className="bg-gray-50 p-6 rounded-xl border-2 border-gray-200 flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xl font-black">
-                        {index + 1}
-                      </div>
-                      <p className="text-3xl font-bold text-gray-900">{answer.text}</p>
-                    </div>
-                    {showAnswer && (
-                      <div className="text-3xl font-black text-indigo-600">
-                        {answer.points} pts
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+      );
+  }
 };
 
 export default TVDisplay;
