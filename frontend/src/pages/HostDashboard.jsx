@@ -389,6 +389,15 @@ const HostDashboard = () => {
               ))}
             </div>
           </TabsContent>
+
+          {/* Import & Game Packs Tab */}
+          <TabsContent value="import" className="space-y-6">
+            <QuestionImport 
+              onImportComplete={(questions) => {
+                setQuestions([...questions, ...questions]);
+              }}
+            />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
