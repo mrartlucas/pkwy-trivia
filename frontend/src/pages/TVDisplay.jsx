@@ -52,31 +52,39 @@ const TVDisplay = () => {
 
   if (gameState === 'lobby') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 p-8 flex items-center justify-center">
         <div className="text-center space-y-12 max-w-4xl w-full">
           <div className="animate-pulse">
-            <h1 className="text-8xl font-black text-white mb-4">TRIVIA SHOWDOWN</h1>
-            <p className="text-3xl text-white/90">Get Ready to Play!</p>
+            <img 
+              src={branding.venue.logo} 
+              alt={branding.venue.name}
+              className="h-40 w-auto mx-auto object-contain mb-8"
+            />
+            <h1 className="text-8xl font-black text-white mb-4" style={{ fontFamily: branding.fonts.heading }}>
+              {branding.venue.name.toUpperCase()}
+            </h1>
+            <p className="text-4xl text-white/90 mb-2">{branding.venue.tagline}</p>
+            <p className="text-5xl font-bold text-yellow-400 mt-6">TRIVIA NIGHT</p>
           </div>
           
-          <Card className="bg-white/10 backdrop-blur-lg border-0 text-white">
+          <Card className="bg-white/10 backdrop-blur-lg border-4 border-yellow-400">
             <CardContent className="p-12">
-              <p className="text-2xl mb-4">Join the game with code:</p>
-              <p className="text-8xl font-black font-mono tracking-wider mb-8">{gameCode || 'QUIZ42'}</p>
-              <div className="flex items-center justify-center gap-4 text-3xl">
-                <Users className="w-12 h-12" />
+              <p className="text-3xl text-white/90 mb-4">Join the game with code:</p>
+              <p className="text-9xl font-black font-mono tracking-wider mb-8 text-yellow-400">{gameCode || 'TRIVIA'}</p>
+              <div className="flex items-center justify-center gap-4 text-4xl text-white">
+                <Users className="w-14 h-14" />
                 <span className="font-bold">{playerCount} Players Connected</span>
               </div>
             </CardContent>
           </Card>
           
           <div className="flex justify-center gap-4">
-            <div className="w-6 h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-6 h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
-            <div className="w-6 h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></div>
+            <div className="w-6 h-6 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-6 h-6 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
+            <div className="w-6 h-6 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></div>
           </div>
           
-          <p className="text-2xl text-white/80">Game starting soon...</p>
+          <p className="text-3xl text-white/90">Get ready to play!</p>
         </div>
       </div>
     );
