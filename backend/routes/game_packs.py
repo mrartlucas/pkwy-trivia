@@ -36,6 +36,7 @@ GAME_NAME_MAP = {
     "BACK TO SCHOOL!": GameFormat.BACK_TO_SCHOOL.value,
     "QUIZ CHASE": GameFormat.QUIZ_CHASE.value,
     "PKWY LIVE!": GameFormat.PKWY_LIVE.value,
+    "GAME NIGHT MIX": GameFormat.GAME_NIGHT_MIX.value,
 }
 
 
@@ -45,6 +46,10 @@ def detect_game_format(content: dict) -> str:
     
     if game_name in GAME_NAME_MAP:
         return GAME_NAME_MAP[game_name]
+    
+    # Check for mixed game night format
+    if "rounds" in content:
+        return GameFormat.GAME_NIGHT_MIX.value
     
     # Fallback detection based on content structure
     if "categories" in content and "clues" in str(content):
